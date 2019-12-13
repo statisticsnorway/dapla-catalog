@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "no.ssb.dapla.catalog.protobuf";
+
+service CatalogService {
+    rpc get (GetDatasetRequest) returns (GetDatasetResponse);
+    rpc save (SaveDatasetRequest) returns (SaveDatasetResponse);
+    rpc delete (DeleteDatasetRequest) returns (DeleteDatasetResponse);
+}
+
+message Schema {
+    string avro = 1;
+}
+
+message Dataset {
+    string uuid = 1;
+    Schema schema = 2;
+}
+
+message GetDatasetRequest {
+    string uuid = 1;
+}
+
+message GetDatasetResponse {
+    Dataset note = 1;
+}
+
+message SaveDatasetRequest {
+    Dataset note = 1;
+}
+
+message SaveDatasetResponse {
+}
+
+message DeleteDatasetRequest {
+    string uuid = 1;
+}
+
+message DeleteDatasetResponse {
+}
+
