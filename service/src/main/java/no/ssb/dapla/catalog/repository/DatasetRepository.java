@@ -30,10 +30,18 @@ public class DatasetRepository {
         return null;
     }
 
-    public Dataset get(String id, long timestamp) {
-        throw new RuntimeException("Not implemented");
-    }
+    /**
+     * Get the dataset that was the most recent at a given time
+     */
+    public Dataset get(String id, long timestamp) throws InvalidProtocolBufferException {
 
+        String start = String.format("%s#%d", id, Long.MAX_VALUE - timestamp);
+
+        for (Row row : dataClient.readRows(Query.create(TABLE_ID).range(start, null).limit(1))) {
+            return Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue());
+        }
+        return null;
+    }
 
     public void create(Dataset dataset) {
 
