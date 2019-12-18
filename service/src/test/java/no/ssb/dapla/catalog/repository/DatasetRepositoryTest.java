@@ -8,12 +8,21 @@ import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.protobuf.ByteString;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.IOException;
+import java.util.logging.LogManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DatasetRepositoryTest {
+
+    static {
+        LogManager.getLogManager().reset();
+        SLF4JBridgeHandler.removeHandlersForRootLogger();
+        SLF4JBridgeHandler.install();
+    }
 
     void createTableIfNotExists(String tableId, String columnFamily) {
 
