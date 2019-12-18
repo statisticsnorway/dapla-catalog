@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "no.ssb.dapla.catalog.protobuf";
+
+message Dataset {
+    string id = 1;
+    enum Valuation {
+        OPEN = 0;
+        INTERNAL = 1;
+        SHIELDED = 2;
+        SENSITIVE = 3;
+    }
+    Valuation valuation = 2;
+    enum DatasetState {
+        RAW = 0;
+        INPUT = 1;
+        PROCESSED = 2;
+        OUTPUT = 3;
+        PRODUCT = 4;
+        OTHER = 5;
+    }
+    DatasetState state = 3;
+    repeated string locations = 4;
+}
