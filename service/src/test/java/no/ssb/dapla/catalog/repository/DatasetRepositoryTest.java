@@ -68,6 +68,42 @@ class DatasetRepositoryTest {
     }
 
     @Test
+    void thatDeleteWorks() throws Exception {
+        DatasetRepository repository = new DatasetRepository(dataClient);
+
+        Dataset ds1 = Dataset.newBuilder()
+                .setId("to_be_deleted")
+                .setState(DatasetState.PRODUCT)
+                .setValuation(Valuation.INTERNAL)
+                .addLocations("f1")
+                .addLocations("f2")
+                .build();
+        repository.create(ds1);
+
+        Dataset ds2 = Dataset.newBuilder()
+                .setId("to_be_deleted")
+                .setState(DatasetState.PRODUCT)
+                .setValuation(Valuation.OPEN)
+                .addLocations("f1")
+                .addLocations("f2")
+                .addLocations("f3")
+                .build();
+        repository.create(ds2);
+
+        Dataset ds3 = Dataset.newBuilder()
+                .setId("should_not_be_deleted")
+                .setState(DatasetState.INPUT)
+                .setValuation(Valuation.SENSITIVE)
+                .addLocations("f1")
+                .build();
+        repository.create(ds3);
+
+        repository.delete("to_be_deleted");
+        assertThat(repository.get("to_be_deleted")).isNull();
+        assertThat(repository.get("should_not_be_deleted")).isNotNull();
+    }
+
+    @Test
     void thatGetMostRecentAtAGivenTimeWorks() throws Exception {
         DatasetRepository repository = new DatasetRepository(dataClient);
 

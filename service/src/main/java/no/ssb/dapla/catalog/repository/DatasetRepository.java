@@ -59,11 +59,9 @@ public class DatasetRepository {
         dataClient.mutateRow(rowMutation);
     }
 
-    public void update(Dataset dataset) {
-        throw new RuntimeException("Not implemented");
-    }
-
     public void delete(String id) {
-        throw new RuntimeException("Not implemented");
+        dataClient
+                .readRows(Query.create(TABLE_ID).prefix(id))
+                .forEach(row -> dataClient.mutateRow(RowMutation.create(TABLE_ID, row.getKey()).deleteRow()));
     }
 }
