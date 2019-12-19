@@ -1,75 +1,35 @@
 package no.ssb.dapla.catalog.repository;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
-import com.google.cloud.bigtable.admin.v2.BigtableTableAdminSettings;
-import com.google.cloud.bigtable.admin.v2.models.CreateTableRequest;
-import com.google.cloud.bigtable.data.v2.BigtableDataClient;
-import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.protobuf.ByteString;
+import no.ssb.dapla.catalog.Application;
+import no.ssb.dapla.catalog.IntegrationTestExtension;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.Dataset.DatasetState;
 import no.ssb.dapla.catalog.protobuf.Dataset.Valuation;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.slf4j.bridge.SLF4JBridgeHandler;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+import javax.inject.Inject;
 import java.io.IOException;
-import java.util.logging.LogManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(IntegrationTestExtension.class)
 class DatasetRepositoryTest {
 
-    static {
-        LogManager.getLogManager().reset();
-        SLF4JBridgeHandler.removeHandlersForRootLogger();
-        SLF4JBridgeHandler.install();
-    }
-
-    private static BigtableDataClient dataClient;
-
-    private static BigtableTableAdminClient adminClient;
-
-    @BeforeAll
-    public static void beforeAll() throws Exception {
-        BigtableTableAdminSettings adminSettings = BigtableTableAdminSettings
-                .newBuilderForEmulator("localhost", 9035)
-                .setProjectId("my-project")
-                .setInstanceId("my-instance")
-                .build();
-
-        adminClient = BigtableTableAdminClient.create(adminSettings);
-
-        if (!adminClient.exists("dataset")) {
-            CreateTableRequest createTableRequest = CreateTableRequest.of("dataset").addFamily("document");
-            adminClient.createTable(createTableRequest);
-        }
-
-        BigtableDataSettings dataSettings = BigtableDataSettings
-                .newBuilderForEmulator("localhost", 9035)
-                .setProjectId("my-project")
-                .setInstanceId("my-instance")
-                .build();
-
-        dataClient = BigtableDataClient.create(dataSettings);
-    }
-
-    @AfterAll
-    public static void afterAll() {
-        dataClient.close();
-        adminClient.close();
-    }
+    @Inject
+    Application application;
 
     @AfterEach
     public void afterEach() {
-        adminClient.dropAllRows("dataset");
+        application.get(BigtableTableAdminClient.class).dropAllRows("dataset");
     }
 
     @Test
     void thatDeleteWorks() throws Exception {
-        DatasetRepository repository = new DatasetRepository(dataClient);
+        DatasetRepository repository = application.get(DatasetRepository.class);
 
         Dataset ds1 = Dataset.newBuilder()
                 .setId("to_be_deleted")
@@ -105,7 +65,7 @@ class DatasetRepositoryTest {
 
     @Test
     void thatGetMostRecentAtAGivenTimeWorks() throws Exception {
-        DatasetRepository repository = new DatasetRepository(dataClient);
+        DatasetRepository repository = application.get(DatasetRepository.class);
 
         Dataset ds1 = Dataset.newBuilder()
                 .setId("1")
@@ -161,7 +121,7 @@ class DatasetRepositoryTest {
                 .addLocations("gcs://a-file")
                 .build();
 
-        DatasetRepository repository = new DatasetRepository(dataClient);
+        DatasetRepository repository = application.get(DatasetRepository.class);
         repository.create(ds1);
         repository.create(ds2);
         repository.create(ds3);

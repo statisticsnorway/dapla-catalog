@@ -1,0 +1,7 @@
+bigtable:
+  host: localhost
+  port: 9035
+  project-id: my-project
+  instance-id: my-instance
+  table-id: dataset
+  column-family: document
