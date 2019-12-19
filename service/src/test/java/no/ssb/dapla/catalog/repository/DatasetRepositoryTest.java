@@ -10,6 +10,7 @@ import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.Dataset.DatasetState;
 import no.ssb.dapla.catalog.protobuf.Dataset.Valuation;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -29,6 +30,8 @@ class DatasetRepositoryTest {
 
     private static BigtableDataClient dataClient;
 
+    private static BigtableTableAdminClient adminClient;
+
     @BeforeAll
     public static void beforeAll() throws Exception {
         BigtableTableAdminSettings adminSettings = BigtableTableAdminSettings
@@ -37,11 +40,11 @@ class DatasetRepositoryTest {
                 .setInstanceId("my-instance")
                 .build();
 
-        try (BigtableTableAdminClient adminClient = BigtableTableAdminClient.create(adminSettings)) {
-            if (!adminClient.exists("dataset")) {
-                CreateTableRequest createTableRequest = CreateTableRequest.of("dataset").addFamily("document");
-                adminClient.createTable(createTableRequest);
-            }
+        adminClient = BigtableTableAdminClient.create(adminSettings);
+
+        if (!adminClient.exists("dataset")) {
+            CreateTableRequest createTableRequest = CreateTableRequest.of("dataset").addFamily("document");
+            adminClient.createTable(createTableRequest);
         }
 
         BigtableDataSettings dataSettings = BigtableDataSettings
@@ -56,11 +59,17 @@ class DatasetRepositoryTest {
     @AfterAll
     public static void afterAll() {
         dataClient.close();
+        adminClient.close();
+    }
+
+    @AfterEach
+    public void afterEach() {
+        adminClient.dropAllRows("dataset");
     }
 
     @Test
     void thatGetMostRecentAtAGivenTimeWorks() throws Exception {
-        final DatasetRepository repository = new DatasetRepository(dataClient);
+        DatasetRepository repository = new DatasetRepository(dataClient);
 
         Dataset ds1 = Dataset.newBuilder()
                 .setId("1")
@@ -70,11 +79,11 @@ class DatasetRepositoryTest {
                 .build();
         repository.create(ds1);
 
-        Thread.sleep(100L);
+        Thread.sleep(50L);
 
         long timestamp = System.currentTimeMillis();
 
-        Thread.sleep(100L);
+        Thread.sleep(50L);
 
         Dataset ds2 = Dataset.newBuilder()
                 .setId("1")
