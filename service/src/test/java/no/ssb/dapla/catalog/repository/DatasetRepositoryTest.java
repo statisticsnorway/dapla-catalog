@@ -56,7 +56,7 @@ class DatasetRepositoryTest {
                 .build();
         repository.create(ds3).join();
 
-        repository.delete("to_be_deleted");
+        repository.delete("to_be_deleted").join();
         assertThat(repository.get("to_be_deleted").join()).isNull();
         assertThat(repository.get("should_not_be_deleted").join()).isNotNull();
     }
