@@ -8,7 +8,11 @@ import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import io.helidon.config.Config;
 import io.helidon.config.spi.ConfigSource;
+import io.helidon.grpc.server.GrpcRouting;
+import io.helidon.grpc.server.GrpcServer;
+import io.helidon.grpc.server.GrpcServerConfiguration;
 import no.ssb.dapla.catalog.repository.DatasetRepository;
+import no.ssb.dapla.catalog.service.DatasetService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -17,8 +21,12 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.logging.LogManager;
 
@@ -61,6 +69,18 @@ public class Application {
         configSourceSupplierList.add(classpath("application.yaml"));
 
         Application application = new Application(Config.builder().sources(configSourceSupplierList).build());
+        application.start().toCompletableFuture().orTimeout(10, TimeUnit.SECONDS)
+                .thenAccept(
+                        app -> LOG.info(
+                                "Grpcserver running at port: {}, started in {} ms",
+                                app.get(GrpcServer.class).port(), System.currentTimeMillis() - startTime
+                        )
+                )
+                .exceptionally(throwable -> {
+                    LOG.error("While starting application", throwable);
+                    System.exit(1);
+                    return null;
+                });
     }
 
     public Application(Config config) {
@@ -75,6 +95,17 @@ public class Application {
 
         DatasetRepository repository = new DatasetRepository(dataClient);
         put(DatasetRepository.class, repository);
+
+        DatasetService service = new DatasetService(repository);
+        put(DatasetService.class, service);
+
+        GrpcServer grpcServer = GrpcServer.create(
+                GrpcServerConfiguration.create(config.get("grpcserver")),
+                GrpcRouting.builder()
+                        .register(service)
+                        .build()
+        );
+        put(GrpcServer.class, grpcServer);
     }
 
     private static void createBigtableSchemaIfNotExists(Config bigtableConfig, BigtableTableAdminClient adminClient) {
@@ -122,12 +153,19 @@ public class Application {
     }
 
     public CompletionStage<Application> start() {
-        throw new RuntimeException("Not implemented yet");
+        return get(GrpcServer.class).start().thenApply(grpcServer -> this);
     }
 
     public Application stop() {
-        get(BigtableDataClient.class).close();
-        get(BigtableTableAdminClient.class).close();
+        try {
+            CompletableFuture.allOf(
+                    get(GrpcServer.class).shutdown().toCompletableFuture(),
+                    CompletableFuture.runAsync(() -> get(BigtableDataClient.class).close()),
+                    CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close())
+            ).get(2, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException("Something bad happened when shutting down application", e);
+        }
         return this;
     }
 }
