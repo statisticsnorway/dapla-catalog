@@ -36,7 +36,7 @@ class DatasetRepositoryTest {
                 .addLocations("f1")
                 .addLocations("f2")
                 .build();
-        repository.create(ds1);
+        repository.create(ds1).join();
 
         Dataset ds2 = Dataset.newBuilder()
                 .setId("to_be_deleted")
@@ -46,7 +46,7 @@ class DatasetRepositoryTest {
                 .addLocations("f2")
                 .addLocations("f3")
                 .build();
-        repository.create(ds2);
+        repository.create(ds2).join();
 
         Dataset ds3 = Dataset.newBuilder()
                 .setId("should_not_be_deleted")
@@ -54,7 +54,7 @@ class DatasetRepositoryTest {
                 .setValuation(Valuation.SENSITIVE)
                 .addLocations("f1")
                 .build();
-        repository.create(ds3);
+        repository.create(ds3).join();
 
         repository.delete("to_be_deleted");
         assertThat(repository.get("to_be_deleted").join()).isNull();
@@ -71,7 +71,7 @@ class DatasetRepositoryTest {
                 .setValuation(Valuation.SHIELDED)
                 .addLocations("gcs://some-file")
                 .build();
-        repository.create(ds1);
+        repository.create(ds1).join();
 
         Thread.sleep(50L);
 
@@ -85,7 +85,7 @@ class DatasetRepositoryTest {
                 .setValuation(Valuation.INTERNAL)
                 .addLocations("gcs://another-file")
                 .build();
-        repository.create(ds2);
+        repository.create(ds2).join();
 
         assertThat(repository.get("1", timestamp).join()).isEqualTo(ds1);
     }
@@ -115,9 +115,9 @@ class DatasetRepositoryTest {
                 .build();
 
         DatasetRepository repository = application.get(DatasetRepository.class);
-        repository.create(ds1);
-        repository.create(ds2);
-        repository.create(ds3);
+        repository.create(ds1).join();
+        repository.create(ds2).join();
+        repository.create(ds3).join();
 
         assertThat(repository.get("1").join()).isEqualTo(ds2);
     }
