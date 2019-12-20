@@ -1,7 +1,6 @@
 package no.ssb.dapla.catalog.repository;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
-import com.google.protobuf.ByteString;
 import no.ssb.dapla.catalog.Application;
 import no.ssb.dapla.catalog.IntegrationTestExtension;
 import no.ssb.dapla.catalog.protobuf.Dataset;
@@ -12,9 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
-import java.io.IOException;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static no.ssb.dapla.catalog.DatasetAssert.assertThat;
 
 @ExtendWith(IntegrationTestExtension.class)
 class DatasetRepositoryTest {
@@ -28,7 +26,7 @@ class DatasetRepositoryTest {
     }
 
     @Test
-    void thatDeleteWorks() throws Exception {
+    void thatDeleteWorks() {
         DatasetRepository repository = application.get(DatasetRepository.class);
 
         Dataset ds1 = Dataset.newBuilder()
@@ -87,18 +85,13 @@ class DatasetRepositoryTest {
                 .setValuation(Valuation.INTERNAL)
                 .addLocations("gcs://another-file")
                 .build();
-
         repository.create(ds2);
 
-        Dataset dataset = repository.get("1", timestamp).join();
-        assertThat(dataset.getId()).isEqualTo("1");
-        assertThat(dataset.getState()).isEqualTo(DatasetState.RAW);
-        assertThat(dataset.getValuation()).isEqualTo(Valuation.SHIELDED);
-        assertThat(dataset.getLocationsList().asByteStringList()).containsExactly(ByteString.copyFrom("gcs://some-file".getBytes()));
+        assertThat(repository.get("1", timestamp).join()).isEqualTo(ds1);
     }
 
     @Test
-    void thatWriteWorks() throws IOException {
+    void thatWriteWorks() {
 
         Dataset ds1 = Dataset.newBuilder()
                 .setId("1")
@@ -126,11 +119,6 @@ class DatasetRepositoryTest {
         repository.create(ds2);
         repository.create(ds3);
 
-        Dataset dataset = repository.get("1").join();
-
-        assertThat(dataset.getId()).isEqualTo("1");
-        assertThat(dataset.getState()).isEqualTo(DatasetState.INPUT);
-        assertThat(dataset.getValuation()).isEqualTo(Valuation.INTERNAL);
-        assertThat(dataset.getLocationsList().asByteStringList()).containsExactly(ByteString.copyFrom("gcs://another-file".getBytes()));
+        assertThat(repository.get("1").join()).isEqualTo(ds2);
     }
 }
