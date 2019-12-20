@@ -1,0 +1,2 @@
+grpcserver:
+  port: 7070
