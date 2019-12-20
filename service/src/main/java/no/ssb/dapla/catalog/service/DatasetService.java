@@ -49,15 +49,29 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase {
 
     @Override
     public void save(SaveDatasetRequest request, StreamObserver<SaveDatasetResponse> responseObserver) {
-        repository.create(request.getDataset());
-        responseObserver.onNext(SaveDatasetResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        repository.create(request.getDataset())
+                .orTimeout(5, TimeUnit.SECONDS)
+                .thenAccept(aVoid -> {
+                    responseObserver.onNext(SaveDatasetResponse.newBuilder().build());
+                    responseObserver.onCompleted();
+                })
+                .exceptionally(throwable -> {
+                    responseObserver.onError(throwable);
+                    return null;
+                });
     }
 
     @Override
     public void delete(DeleteDatasetRequest request, StreamObserver<DeleteDatasetResponse> responseObserver) {
-        repository.delete(request.getId());
-        responseObserver.onNext(DeleteDatasetResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        repository.delete(request.getId())
+                .orTimeout(5, TimeUnit.SECONDS)
+                .thenAccept(integer -> {
+                    responseObserver.onNext(DeleteDatasetResponse.newBuilder().build());
+                    responseObserver.onCompleted();
+                })
+                .exceptionally(throwable -> {
+                    responseObserver.onError(throwable);
+                    return null;
+                });
     }
 }
