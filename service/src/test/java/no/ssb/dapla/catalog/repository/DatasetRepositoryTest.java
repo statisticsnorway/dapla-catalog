@@ -62,7 +62,7 @@ class DatasetRepositoryTest {
     }
 
     @Test
-    void thatGetMostRecentAtAGivenTimeWorks() throws Exception {
+    void thatGetMostRecentAtAGivenTimeWorks() throws InterruptedException {
         DatasetRepository repository = application.get(DatasetRepository.class);
 
         Dataset ds1 = Dataset.newBuilder()

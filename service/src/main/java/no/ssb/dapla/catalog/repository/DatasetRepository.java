@@ -11,7 +11,6 @@ import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import no.ssb.dapla.catalog.bigtable.FirstResponseObserver;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 
 import java.util.List;
@@ -29,18 +28,42 @@ public class DatasetRepository {
         this.dataClient = dataClient;
     }
 
+    static class FirstDatasetReaderApiFutureCallback implements ApiFutureCallback<Row> {
+        final CompletableFuture<Dataset> future;
+
+        FirstDatasetReaderApiFutureCallback(CompletableFuture<Dataset> future) {
+            this.future = future;
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            future.completeExceptionally(t);
+        }
+
+        @Override
+        public void onSuccess(Row row) {
+            if (row == null) {
+                future.complete(null);
+                return;
+            }
+            try {
+                future.complete(Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue()));
+            } catch (InvalidProtocolBufferException e) {
+                future.completeExceptionally(e);
+            }
+        }
+    }
+
     /**
      * Get the latest dataset with the given id
      */
     public CompletableFuture<Dataset> get(String id) {
         CompletableFuture<Dataset> future = new CompletableFuture<>();
-        dataClient.readRowsAsync(Query.create(TABLE_ID).prefix(id).limit(1), new FirstResponseObserver<>(future, row -> {
-            try {
-                return Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue());
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
-        }));
+        ApiFutures.addCallback(
+                dataClient.readRowsCallable().first().futureCall(Query.create(TABLE_ID).prefix(id).limit(1)),
+                new FirstDatasetReaderApiFutureCallback(future),
+                MoreExecutors.directExecutor()
+        );
         return future;
     }
 
@@ -48,15 +71,13 @@ public class DatasetRepository {
      * Get the dataset that was the most recent at a given time
      */
     public CompletableFuture<Dataset> get(String id, long timestamp) {
-        CompletableFuture<Dataset> future = new CompletableFuture<>();
         String start = String.format("%s#%d", id, Long.MAX_VALUE - timestamp);
-        dataClient.readRowsAsync(Query.create(TABLE_ID).range(start, null).limit(1), new FirstResponseObserver<>(future, row -> {
-            try {
-                return Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue());
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
-        }));
+        CompletableFuture<Dataset> future = new CompletableFuture<>();
+        ApiFutures.addCallback(
+                dataClient.readRowsCallable().first().futureCall(Query.create(TABLE_ID).range(start, null).limit(1)),
+                new FirstDatasetReaderApiFutureCallback(future),
+                MoreExecutors.directExecutor()
+        );
         return future;
     }
 
