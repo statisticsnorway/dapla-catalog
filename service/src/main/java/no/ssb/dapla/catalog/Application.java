@@ -118,29 +118,45 @@ public class Application {
 
     private static BigtableTableAdminClient createBigtableAdminClient(Config bigtableConfig) {
         try {
-            BigtableTableAdminSettings adminSettings = BigtableTableAdminSettings
-                    .newBuilderForEmulator(bigtableConfig.get("host").asString().orElse("localhost"), bigtableConfig.get("port").asInt().orElse(9035))
-                    .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
-                    .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-                    //                .setCredentialsProvider() //TODO
-                    .build();
-            return BigtableTableAdminClient.create(adminSettings);
+            BigtableTableAdminSettings settings;
+            if (bigtableConfig.get("emulator").asBoolean().orElse(true)) {
+                settings = BigtableTableAdminSettings
+                        .newBuilderForEmulator(bigtableConfig.get("host").asString().orElse("localhost"), bigtableConfig.get("port").asInt().orElse(9035))
+                        .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
+                        .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
+                        .build();
+            } else {
+                settings = BigtableTableAdminSettings
+                        .newBuilder()
+                        .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
+                        .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
+//                        .setCredentialsProvider(GoogleCredentialsProvider.newBuilder().build()) //TODO
+                        .build();
+            }
+            return BigtableTableAdminClient.create(settings);
         } catch (IOException e) {
             throw new ApplicationInitializationException("Failed to connect to bigtable", e);
         }
     }
 
     private static BigtableDataClient createBigtableDataClient(Config bigtableConfig) {
-
-        BigtableDataSettings dataSettings = BigtableDataSettings
-                .newBuilderForEmulator(bigtableConfig.get("host").asString().orElse("localhost"), bigtableConfig.get("port").asInt().orElse(9035))
-                .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
-                .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-//                .setCredentialsProvider() //TODO
-                .build();
-
+        BigtableDataSettings settings;
+        if (bigtableConfig.get("emulator").asBoolean().orElse(true)) {
+            settings = BigtableDataSettings
+                    .newBuilderForEmulator(bigtableConfig.get("host").asString().orElse("localhost"), bigtableConfig.get("port").asInt().orElse(9035))
+                    .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
+                    .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
+                    .build();
+        } else {
+            settings = BigtableDataSettings
+                    .newBuilder()
+                    .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
+                    .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
+//                        .setCredentialsProvider(GoogleCredentialsProvider.newBuilder().build()) //TODO
+                    .build();
+        }
         try {
-            return BigtableDataClient.create(dataSettings);
+            return BigtableDataClient.create(settings);
         } catch (IOException e) {
             throw new ApplicationInitializationException("Could not connect to bigtable", e);
         }
