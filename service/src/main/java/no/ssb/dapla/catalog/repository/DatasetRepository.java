@@ -1,8 +1,11 @@
 package no.ssb.dapla.catalog.repository;
 
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.Query;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import no.ssb.dapla.catalog.bigtable.FirstResponseObserver;
@@ -53,7 +56,8 @@ public class DatasetRepository {
         return future;
     }
 
-    public void create(Dataset dataset) {
+    public CompletableFuture<Void> create(Dataset dataset) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
 
         // We create a reverse timestamp so that the most recent dataset will appear at the start of the table instead
         // of the end. This because we assume that the most common query will be for the latest dataset.
@@ -66,7 +70,17 @@ public class DatasetRepository {
                         dataset.toByteString()
                 );
 
-        dataClient.mutateRow(rowMutation);
+        ApiFutures.addCallback(dataClient.mutateRowAsync(rowMutation), new ApiFutureCallback<>() {
+            public void onFailure(Throwable t) {
+                future.completeExceptionally(t);
+            }
+
+            public void onSuccess(Void ignored) {
+                future.complete(ignored);
+            }
+        }, MoreExecutors.directExecutor());
+
+        return future;
     }
 
     public void delete(String id) {
