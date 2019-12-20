@@ -2,11 +2,13 @@ package no.ssb.dapla.catalog.repository;
 
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.Query;
-import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import no.ssb.dapla.catalog.bigtable.FirstResponseObserver;
 import no.ssb.dapla.catalog.protobuf.Dataset;
+
+import java.util.concurrent.CompletableFuture;
 
 public class DatasetRepository {
 
@@ -23,24 +25,32 @@ public class DatasetRepository {
     /**
      * Get the latest dataset with the given id
      */
-    public Dataset get(String id) throws InvalidProtocolBufferException {
-        for (Row row : dataClient.readRows(Query.create(TABLE_ID).prefix(id).limit(1))) {
-            return Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue());
-        }
-        return null;
+    public CompletableFuture<Dataset> get(String id) {
+        CompletableFuture<Dataset> future = new CompletableFuture<>();
+        dataClient.readRowsAsync(Query.create(TABLE_ID).prefix(id).limit(1), new FirstResponseObserver<>(future, row -> {
+            try {
+                return Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue());
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        }));
+        return future;
     }
 
     /**
      * Get the dataset that was the most recent at a given time
      */
-    public Dataset get(String id, long timestamp) throws InvalidProtocolBufferException {
-
+    public CompletableFuture<Dataset> get(String id, long timestamp) {
+        CompletableFuture<Dataset> future = new CompletableFuture<>();
         String start = String.format("%s#%d", id, Long.MAX_VALUE - timestamp);
-
-        for (Row row : dataClient.readRows(Query.create(TABLE_ID).range(start, null).limit(1))) {
-            return Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue());
-        }
-        return null;
+        dataClient.readRowsAsync(Query.create(TABLE_ID).range(start, null).limit(1), new FirstResponseObserver<>(future, row -> {
+            try {
+                return Dataset.parseFrom(row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER).get(0).getValue());
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        }));
+        return future;
     }
 
     public void create(Dataset dataset) {

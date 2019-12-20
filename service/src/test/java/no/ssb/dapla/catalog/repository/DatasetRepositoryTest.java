@@ -59,8 +59,8 @@ class DatasetRepositoryTest {
         repository.create(ds3);
 
         repository.delete("to_be_deleted");
-        assertThat(repository.get("to_be_deleted")).isNull();
-        assertThat(repository.get("should_not_be_deleted")).isNotNull();
+        assertThat(repository.get("to_be_deleted").join()).isNull();
+        assertThat(repository.get("should_not_be_deleted").join()).isNotNull();
     }
 
     @Test
@@ -90,7 +90,7 @@ class DatasetRepositoryTest {
 
         repository.create(ds2);
 
-        Dataset dataset = repository.get("1", timestamp);
+        Dataset dataset = repository.get("1", timestamp).join();
         assertThat(dataset.getId()).isEqualTo("1");
         assertThat(dataset.getState()).isEqualTo(DatasetState.RAW);
         assertThat(dataset.getValuation()).isEqualTo(Valuation.SHIELDED);
@@ -126,7 +126,7 @@ class DatasetRepositoryTest {
         repository.create(ds2);
         repository.create(ds3);
 
-        Dataset dataset = repository.get("1");
+        Dataset dataset = repository.get("1").join();
 
         assertThat(dataset.getId()).isEqualTo("1");
         assertThat(dataset.getState()).isEqualTo(DatasetState.INPUT);
