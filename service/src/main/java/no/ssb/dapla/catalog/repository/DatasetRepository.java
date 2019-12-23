@@ -118,6 +118,10 @@ public class DatasetRepository {
 
             @Override
             public void onSuccess(List<Row> rows) {
+                if (rows.isEmpty()) {
+                    future.complete(0);
+                    return;
+                }
                 BulkMutation batch = BulkMutation.create(TABLE_ID);
                 for (Row row : rows) {
                     batch.add(row.getKey(), Mutation.create().deleteRow());

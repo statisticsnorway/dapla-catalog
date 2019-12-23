@@ -2,6 +2,7 @@ grpcserver:
   port: 7070
 
 bigtable:
+  emulator: true
   host: localhost
   port: 9035
   project-id: my-project
