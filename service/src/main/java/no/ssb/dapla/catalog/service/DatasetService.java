@@ -1,6 +1,12 @@
 package no.ssb.dapla.catalog.service;
 
 import io.grpc.stub.StreamObserver;
+import io.helidon.common.http.Http;
+import io.helidon.webserver.Handler;
+import io.helidon.webserver.Routing;
+import io.helidon.webserver.ServerRequest;
+import io.helidon.webserver.ServerResponse;
+import io.helidon.webserver.Service;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
@@ -14,12 +20,45 @@ import no.ssb.dapla.catalog.repository.DatasetRepository;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase {
+public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase implements Service {
 
     final DatasetRepository repository;
 
     public DatasetService(DatasetRepository repository) {
         this.repository = repository;
+    }
+
+    @Override
+    public void update(Routing.Rules rules) {
+        rules.get("/{datasetId}", this::httpGet);
+        rules.put("/{datasetId}", Handler.create(Dataset.class, this::httpPut));
+        rules.delete("/{datasetId}", this::httpDelete);
+    }
+
+    void httpGet(ServerRequest request, ServerResponse response) {
+        String datasetId = request.path().param("datasetId");
+        repository.get(datasetId)
+                .thenAccept(dataset -> {
+                    if (dataset == null) {
+                        response.status(Http.Status.NOT_FOUND_404).send();
+                    } else {
+                        response.send(dataset);
+                    }
+                });
+
+    }
+
+    void httpPut(ServerRequest request, ServerResponse response, Dataset dataset) {
+        String datasetId = request.path().param("datasetId");
+        if (!datasetId.equals(dataset.getId())) {
+            response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
+        }
+        repository.create(dataset);
+    }
+
+    void httpDelete(ServerRequest request, ServerResponse response) {
+        String datasetId = request.path().param("datasetId");
+        repository.delete(datasetId);
     }
 
     @Override
