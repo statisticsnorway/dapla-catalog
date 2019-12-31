@@ -1,5 +1,5 @@
 grpcserver:
-  port: 7070
+  port: 0
 
 bigtable:
   emulator: true
