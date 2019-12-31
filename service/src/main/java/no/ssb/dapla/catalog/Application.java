@@ -16,6 +16,11 @@ import io.helidon.config.spi.ConfigSource;
 import io.helidon.grpc.server.GrpcRouting;
 import io.helidon.grpc.server.GrpcServer;
 import io.helidon.grpc.server.GrpcServerConfiguration;
+import io.helidon.media.jackson.server.JacksonSupport;
+import io.helidon.metrics.MetricsSupport;
+import io.helidon.webserver.Routing;
+import io.helidon.webserver.ServerConfiguration;
+import io.helidon.webserver.WebServer;
 import no.ssb.dapla.catalog.repository.DatasetRepository;
 import no.ssb.dapla.catalog.service.DatasetService;
 import org.slf4j.Logger;
@@ -29,9 +34,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.logging.LogManager;
 
@@ -75,12 +78,8 @@ public class Application {
 
         Application application = new Application(Config.builder().sources(configSourceSupplierList).build());
         application.start().toCompletableFuture().orTimeout(10, TimeUnit.SECONDS)
-                .thenAccept(
-                        app -> LOG.info(
-                                "Grpcserver running at port: {}, started in {} ms",
-                                app.get(GrpcServer.class).port(), System.currentTimeMillis() - startTime
-                        )
-                )
+                .thenAccept(app -> LOG.info("Webserver running at port: {}, Grpcserver running at port: {}, started in {} ms",
+                        app.get(WebServer.class).port(), app.get(GrpcServer.class).port(), System.currentTimeMillis() - startTime))
                 .exceptionally(throwable -> {
                     LOG.error("While starting application", throwable);
                     System.exit(1);
@@ -110,16 +109,27 @@ public class Application {
         DatasetRepository repository = new DatasetRepository(dataClient);
         put(DatasetRepository.class, repository);
 
-        DatasetService service = new DatasetService(repository);
-        put(DatasetService.class, service);
+        DatasetService dataSetService = new DatasetService(repository);
+        put(DatasetService.class, dataSetService);
 
         GrpcServer grpcServer = GrpcServer.create(
                 GrpcServerConfiguration.create(config.get("grpcserver")),
                 GrpcRouting.builder()
-                        .register(service)
+                        .register(dataSetService)
                         .build()
         );
         put(GrpcServer.class, grpcServer);
+
+        Routing routing = Routing.builder()
+                .register(JacksonSupport.create())
+                .register(MetricsSupport.create())
+                .register("/dataset", dataSetService)
+                .build();
+        put(Routing.class, routing);
+
+        ServerConfiguration configuration = ServerConfiguration.builder(config.get("webserver")).build();
+        WebServer webServer = WebServer.create(configuration, routing);
+        put(WebServer.class, webServer);
     }
 
     private static void createBigtableSchemaIfNotExists(Config bigtableConfig, BigtableTableAdminClient adminClient) {
@@ -183,19 +193,16 @@ public class Application {
     }
 
     public CompletionStage<Application> start() {
-        return get(GrpcServer.class).start().thenApply(grpcServer -> this);
+        return get(WebServer.class).start()
+                .thenCombine(get(GrpcServer.class).start(), (webServer, grpcServer) -> this);
     }
 
     public Application stop() {
-        try {
-            CompletableFuture.allOf(
-                    get(GrpcServer.class).shutdown().toCompletableFuture(),
-                    CompletableFuture.runAsync(() -> get(BigtableDataClient.class).close()),
-                    CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close())
-            ).get(2, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new RuntimeException("Something bad happened when shutting down application", e);
-        }
+        get(WebServer.class).shutdown()
+                .thenCombine(get(GrpcServer.class).shutdown(), ((webServer, grpcServer) -> this))
+                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableDataClient.class).close()), (app, v) -> this)
+                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close()), (app, v) -> this)
+                .toCompletableFuture().orTimeout(2, TimeUnit.SECONDS).join();
         return this;
     }
 }

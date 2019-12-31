@@ -1,2 +1,6 @@
+webserver:
+  port: 8070
+  host: "0.0.0.0"
+
 grpcserver:
   port: 1408
