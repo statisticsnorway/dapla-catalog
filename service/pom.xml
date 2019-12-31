@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>io.helidon.applications</groupId>
+        <artifactId>helidon-se</artifactId>
+        <version>1.4.1</version>
+        <relativePath/>
+    </parent>
     <modelVersion>4.0.0</modelVersion>
     <groupId>no.ssb.dapla</groupId>
     <artifactId>catalog-service</artifactId>
@@ -12,8 +18,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <exec.mainClass>no.ssb.datasetaccess.Application</exec.mainClass>
-        <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
-        <maven-failsafe-plugin.version>3.0.0-M4</maven-failsafe-plugin.version>
+        <maven-surefire-plugin.version>2.19.1</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>2.19.1</maven-failsafe-plugin.version>
         <slf4j.version>1.7.29</slf4j.version>
     </properties>
 
@@ -42,13 +48,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.helidon</groupId>
-                <artifactId>helidon-bom</artifactId>
-                <version>1.4.0</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
