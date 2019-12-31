@@ -6,6 +6,11 @@ import com.google.cloud.bigtable.admin.v2.BigtableTableAdminSettings;
 import com.google.cloud.bigtable.admin.v2.models.CreateTableRequest;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
+import io.grpc.LoadBalancerRegistry;
+import io.grpc.NameResolverRegistry;
+import io.grpc.internal.DnsNameResolverProvider;
+import io.grpc.internal.PickFirstLoadBalancerProvider;
+import io.grpc.services.internal.HealthCheckingRoundRobinLoadBalancerProvider;
 import io.helidon.config.Config;
 import io.helidon.config.spi.ConfigSource;
 import io.helidon.grpc.server.GrpcRouting;
@@ -85,6 +90,15 @@ public class Application {
 
     public Application(Config config) {
         put(Config.class, config);
+
+        // The shaded version of grpc from helidon does not include the service definition for
+        // PickFirstLoadBalancerProvider. This result in LoadBalancerRegistry not being able to
+        // find it. We register them manually here.
+        LoadBalancerRegistry.getDefaultRegistry().register(new PickFirstLoadBalancerProvider());
+        LoadBalancerRegistry.getDefaultRegistry().register(new HealthCheckingRoundRobinLoadBalancerProvider());
+
+        // The same thing happens with the name resolvers.
+        NameResolverRegistry.getDefaultRegistry().register(new DnsNameResolverProvider());
 
         BigtableTableAdminClient adminClient = createBigtableAdminClient(config.get("bigtable"));
         put(BigtableTableAdminClient.class, adminClient);
