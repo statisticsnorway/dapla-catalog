@@ -162,7 +162,7 @@
         <dependency>
             <groupId>no.ssb.jpms</groupId>
             <artifactId>jsr305-and-javax.annotation-api</artifactId>
-            <version>1.1-SNAPSHOT</version>
+            <version>1.1</version>
         </dependency>
         <dependency>
             <groupId>javax.inject</groupId>
@@ -233,7 +233,7 @@
         <dependency>
             <groupId>no.ssb.jpms</groupId>
             <artifactId>gax-grpc-and-proto-google-common-protos</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
 
         <dependency>

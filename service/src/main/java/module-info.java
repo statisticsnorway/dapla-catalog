@@ -26,7 +26,7 @@ module no.ssb.dapla.catalog {
     requires com.google.common;
     requires no.ssb.dapla.catalog.protobuf;
 
-    requires bigtable.shaded;
+    requires gax.grpc.and.proto.google.common.protos;
 
     requires grpc.protobuf;
     requires io.helidon.grpc.server;
