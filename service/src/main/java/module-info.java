@@ -46,6 +46,5 @@ module no.ssb.dapla.catalog {
     requires java.annotation;
 
     opens no.ssb.dapla.catalog to com.fasterxml.jackson.databind;
-    opens no.ssb.dapla.catalog.repository to com.fasterxml.jackson.databind;
-    opens no.ssb.dapla.catalog.service to com.fasterxml.jackson.databind;
+    opens no.ssb.dapla.catalog.dataset to com.fasterxml.jackson.databind;
 }
