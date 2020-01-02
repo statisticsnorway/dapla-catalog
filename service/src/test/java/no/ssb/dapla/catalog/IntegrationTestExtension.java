@@ -6,6 +6,7 @@ import io.grpc.ManagedChannelBuilder;
 import io.helidon.config.Config;
 import io.helidon.config.spi.ConfigSource;
 import io.helidon.grpc.server.GrpcServer;
+import io.helidon.webserver.WebServer;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -23,6 +24,7 @@ import static io.helidon.config.ConfigSources.file;
 
 public class IntegrationTestExtension implements BeforeEachCallback, BeforeAllCallback, AfterAllCallback {
 
+    TestClient client;
     Application application;
     ManagedChannel grpcChannel;
 
@@ -52,6 +54,8 @@ public class IntegrationTestExtension implements BeforeEachCallback, BeforeAllCa
         grpcChannel = ManagedChannelBuilder.forAddress("localhost", application.get(GrpcServer.class).port())
                 .usePlaintext()
                 .build();
+
+        client = TestClient.newClient("localhost", application.get(WebServer.class).port());
     }
 
     @Override
@@ -68,6 +72,17 @@ public class IntegrationTestExtension implements BeforeEachCallback, BeforeAllCa
                     field.setAccessible(true);
                     if (field.get(test) == null) {
                         field.set(test, application);
+                    }
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            // Http test client
+            if (TestClient.class.isAssignableFrom(field.getType())) {
+                try {
+                    field.setAccessible(true);
+                    if (field.get(test) == null) {
+                        field.set(test, client);
                     }
                 } catch (IllegalAccessException e) {
                     throw new RuntimeException(e);
