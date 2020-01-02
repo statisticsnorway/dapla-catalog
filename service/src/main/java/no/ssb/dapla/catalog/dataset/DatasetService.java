@@ -1,4 +1,4 @@
-package no.ssb.dapla.catalog.service;
+package no.ssb.dapla.catalog.dataset;
 
 import io.grpc.stub.StreamObserver;
 import io.helidon.common.http.Http;
@@ -15,7 +15,6 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
-import no.ssb.dapla.catalog.repository.DatasetRepository;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;

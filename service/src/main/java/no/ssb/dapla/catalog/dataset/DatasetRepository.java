@@ -1,4 +1,4 @@
-package no.ssb.dapla.catalog.repository;
+package no.ssb.dapla.catalog.dataset;
 
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;

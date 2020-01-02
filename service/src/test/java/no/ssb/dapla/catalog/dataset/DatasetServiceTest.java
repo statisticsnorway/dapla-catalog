@@ -1,21 +1,21 @@
-package no.ssb.dapla.catalog.service;
+package no.ssb.dapla.catalog.dataset;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
+import com.google.protobuf.InvalidProtocolBufferException;
 import io.grpc.Channel;
 import no.ssb.dapla.catalog.Application;
 import no.ssb.dapla.catalog.DatasetAssert;
 import no.ssb.dapla.catalog.IntegrationTestExtension;
+import no.ssb.dapla.catalog.ResponseHelper;
+import no.ssb.dapla.catalog.TestClient;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
-import no.ssb.dapla.catalog.protobuf.Dataset.DatasetState;
-import no.ssb.dapla.catalog.protobuf.Dataset.Valuation;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
-import no.ssb.dapla.catalog.repository.DatasetRepository;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +26,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 @ExtendWith(IntegrationTestExtension.class)
 class DatasetServiceTest {
 
@@ -34,6 +36,9 @@ class DatasetServiceTest {
 
     @Inject
     Channel channel;
+
+    @Inject
+    TestClient testClient;
 
     @AfterEach
     public void afterEach() {
@@ -76,8 +81,8 @@ class DatasetServiceTest {
     void thatGetDatasetWorks() {
         Dataset dataset = Dataset.newBuilder()
                 .setId("1")
-                .setValuation(Valuation.SHIELDED)
-                .setState(DatasetState.OUTPUT)
+                .setValuation(Dataset.Valuation.SHIELDED)
+                .setState(Dataset.DatasetState.OUTPUT)
                 .addLocations("f1")
                 .build();
         repositoryCreate(dataset);
@@ -86,8 +91,8 @@ class DatasetServiceTest {
         repositoryCreate(
                 Dataset.newBuilder()
                         .setId("2")
-                        .setValuation(Valuation.SENSITIVE)
-                        .setState(DatasetState.RAW)
+                        .setValuation(Dataset.Valuation.SENSITIVE)
+                        .setState(Dataset.DatasetState.RAW)
                         .addLocations("file")
                         .addLocations("file2")
                         .build()
@@ -105,8 +110,8 @@ class DatasetServiceTest {
     void thatGettingAPreviousDatasetWorks() throws InterruptedException {
         Dataset old = Dataset.newBuilder()
                 .setId("a_dataset")
-                .setValuation(Valuation.INTERNAL)
-                .setState(DatasetState.PROCESSED)
+                .setValuation(Dataset.Valuation.INTERNAL)
+                .setState(Dataset.DatasetState.PROCESSED)
                 .build();
         repositoryCreate(old);
 
@@ -119,8 +124,8 @@ class DatasetServiceTest {
         repositoryCreate(
                 Dataset.newBuilder()
                         .setId("a_dataset")
-                        .setValuation(Valuation.OPEN)
-                        .setState(DatasetState.RAW)
+                        .setValuation(Dataset.Valuation.OPEN)
+                        .setState(Dataset.DatasetState.RAW)
                         .addLocations("a_location")
                         .build()
         );
@@ -133,8 +138,8 @@ class DatasetServiceTest {
         repositoryCreate(
                 Dataset.newBuilder()
                         .setId("dataset_from_after_timestamp")
-                        .setValuation(Valuation.OPEN)
-                        .setState(DatasetState.RAW)
+                        .setValuation(Dataset.Valuation.OPEN)
+                        .setState(Dataset.DatasetState.RAW)
                         .addLocations("a_location")
                         .build()
         );
@@ -145,8 +150,8 @@ class DatasetServiceTest {
     void thatGetPreviousReturnsTheLatestDatasetWhenTimestampIsAfterTheLatest() {
         Dataset dataset = Dataset.newBuilder()
                 .setId("dataset_from_before_timestamp")
-                .setValuation(Valuation.SHIELDED)
-                .setState(DatasetState.PRODUCT)
+                .setValuation(Dataset.Valuation.SHIELDED)
+                .setState(Dataset.DatasetState.PRODUCT)
                 .addLocations("some_file")
                 .build();
         repositoryCreate(dataset);
@@ -160,8 +165,8 @@ class DatasetServiceTest {
     void thatCreateWorks() {
         Dataset ds1 = Dataset.newBuilder()
                 .setId("dataset_to_create")
-                .setValuation(Valuation.SENSITIVE)
-                .setState(DatasetState.OUTPUT)
+                .setValuation(Dataset.Valuation.SENSITIVE)
+                .setState(Dataset.DatasetState.OUTPUT)
                 .addLocations("file_location")
                 .build();
         save(ds1);
@@ -169,8 +174,8 @@ class DatasetServiceTest {
 
         Dataset ds2 = Dataset.newBuilder()
                 .setId("dataset_to_create")
-                .setValuation(Valuation.INTERNAL)
-                .setState(DatasetState.PROCESSED)
+                .setValuation(Dataset.Valuation.INTERNAL)
+                .setState(Dataset.DatasetState.PROCESSED)
                 .addLocations("file_location")
                 .addLocations("file_location_2")
                 .build();
@@ -182,8 +187,8 @@ class DatasetServiceTest {
     void thatDeleteWorks() {
         Dataset dataset = Dataset.newBuilder()
                 .setId("dataset_to_delete")
-                .setValuation(Valuation.OPEN)
-                .setState(DatasetState.RAW)
+                .setValuation(Dataset.Valuation.OPEN)
+                .setState(Dataset.DatasetState.RAW)
                 .addLocations("f")
                 .build();
         repositoryCreate(dataset);
@@ -194,5 +199,46 @@ class DatasetServiceTest {
     @Test
     void thatDeleteWorksWhenDatasetDoesntExist() {
         delete("does_not_exist");
+    }
+
+
+    Dataset createDataset(String datasetId, Dataset.DatasetState datasetState, Dataset.Valuation datasetValuation, String location) {
+        Dataset dataset = Dataset.newBuilder()
+                .setId(datasetId)
+                .setState(datasetState)
+                .setValuation(datasetValuation)
+                .addLocations(location)
+                .build();
+        application.get(DatasetRepository.class).create(dataset);
+
+        return dataset;
+    }
+
+    Dataset readDataset(String datasetId) throws InvalidProtocolBufferException {
+        return application.get(DatasetRepository.class).get(datasetId).join();
+    }
+
+    @Test
+    void thatGetWorks() throws InvalidProtocolBufferException {
+        Dataset expectedDataset = createDataset("1", Dataset.DatasetState.PRODUCT, Dataset.Valuation.INTERNAL, "f1");
+        String body = testClient.get("dataset/1").expect200Ok().body();
+        System.out.printf("%s%n", body);
+        Dataset dataset = Dataset.parseFrom(body.getBytes());
+
+        assertEquals(expectedDataset, dataset);
+    }
+
+    @Test
+    void thatGetNonExistentRoleRespondsWith404NotFound() {
+        testClient.get("dataset/2").expect404NotFound();
+    }
+
+    @Test
+    void thatPutWorks() throws InvalidProtocolBufferException {
+        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "f2");
+        ResponseHelper<String> helper = testClient.put("/dataset/2", expectedDataset).expect201Created();
+        assertEquals("/dataset/2", helper.response().headers().firstValue("Location").orElseThrow());
+        Dataset dataset = readDataset("2");
+        assertEquals(expectedDataset, dataset);
     }
 }

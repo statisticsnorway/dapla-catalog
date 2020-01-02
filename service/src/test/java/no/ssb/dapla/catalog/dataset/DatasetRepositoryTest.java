@@ -1,4 +1,4 @@
-package no.ssb.dapla.catalog.repository;
+package no.ssb.dapla.catalog.dataset;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import no.ssb.dapla.catalog.Application;
