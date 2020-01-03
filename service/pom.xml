@@ -26,20 +26,7 @@
     <repositories>
         <repository>
             <id>ssb-bip-releases</id>
-            <url>https://nexus.prod-bip-ci.ssb.no/repository/maven-releases/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-        <repository>
-            <id>ssb-bip-snapshots</id>
-            <url>https://nexus.prod-bip-ci.ssb.no/repository/maven-snapshots/</url>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
+            <url>https://nexus.prod-bip-ci.ssb.no/repository/maven-public/</url>
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
@@ -342,6 +329,15 @@
     <profiles>
         <profile>
             <id>ssb-bip</id>
+            <repositories>
+                <repository>
+                    <id>ssb-bip-releases</id>
+                    <url>https://nexus.prod-bip-ci.ssb.no/repository/maven-public/</url>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
             <distributionManagement>
                 <repository>
                     <id>ssb-bip-releases</id>
