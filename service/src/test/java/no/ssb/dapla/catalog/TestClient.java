@@ -1,6 +1,5 @@
 package no.ssb.dapla.catalog;
 
-import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -175,12 +174,10 @@ public final class TestClient {
 
     static class ProtobufSubscriber<R> implements HttpResponse.BodySubscriber<R> {
         final Class<R> clazz;
-        final Message.Builder builder;
         final HttpResponse.BodySubscriber<String> stringBodySubscriber;
 
-        ProtobufSubscriber(Class<R> clazz, Message.Builder builder, HttpResponse.BodySubscriber<String> stringBodySubscriber) {
+        ProtobufSubscriber(Class<R> clazz, HttpResponse.BodySubscriber<String> stringBodySubscriber) {
             this.clazz = clazz;
-            this.builder = builder;
             this.stringBodySubscriber = stringBodySubscriber;
         }
 
@@ -207,12 +204,12 @@ public final class TestClient {
         @Override
         public CompletionStage<R> getBody() {
             return stringBodySubscriber.getBody()
-                    .thenApply(body -> JacksonUtils.toPojo(body, clazz, builder));
+                    .thenApply(body -> JacksonUtils.toPojo(body, clazz));
         }
     }
 
-    public <R> ResponseHelper<R> get(String uri, Class<R> clazz, Message.Builder builder) {
-        return get(uri, responseInfo -> new ProtobufSubscriber(clazz, builder, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8).apply(responseInfo)));
+    public <R> ResponseHelper<R> get(String uri, Class<R> clazz) {
+        return get(uri, responseInfo -> new ProtobufSubscriber(clazz, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8).apply(responseInfo)));
     }
 
     public <R> ResponseHelper<R> get(String uri, HttpResponse.BodyHandler<R> bodyHandler) {

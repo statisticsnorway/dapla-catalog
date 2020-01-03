@@ -56,7 +56,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
 
     void httpPut(ServerRequest request, ServerResponse response, String datasetJson) {
         String datasetId = request.path().param("datasetId");
-        Dataset dataset = JacksonUtils.toPojo(datasetJson, Dataset.class, Dataset.newBuilder());
+        Dataset dataset = JacksonUtils.toPojo(datasetJson, Dataset.class);
         if (!datasetId.equals(dataset.getId())) {
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
         }

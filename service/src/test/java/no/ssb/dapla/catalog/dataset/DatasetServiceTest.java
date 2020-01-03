@@ -220,7 +220,7 @@ class DatasetServiceTest {
     @Test
     void thatGetWorks() {
         Dataset expectedDataset = createDataset("1", Dataset.DatasetState.PRODUCT, Dataset.Valuation.INTERNAL, "f1");
-        Dataset dataset = testClient.get("/dataset/1", Dataset.class, Dataset.newBuilder()).expect200Ok().body();
+        Dataset dataset = testClient.get("/dataset/1", Dataset.class).expect200Ok().body();
         assertEquals(expectedDataset, dataset);
     }
 

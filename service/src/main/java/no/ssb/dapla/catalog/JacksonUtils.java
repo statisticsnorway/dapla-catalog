@@ -11,6 +11,8 @@ import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 public class JacksonUtils {
 
@@ -32,24 +34,26 @@ public class JacksonUtils {
     }
 
     public static <T> T toPojo(String json, Class<T> clazz) {
-        try {
-            return mapper.readValue(json, clazz);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public static <T> T toPojo(String json, Class<T> clazz, Message.Builder builder) {
-        try {
-            JsonFormat.parser().merge(json, builder);
-            Message message = builder.build();
-            if (clazz.isAssignableFrom(message.getClass())) {
-                return (T) message;
-            } else {
-                throw new IllegalArgumentException("Incompatible types");
+        if (MessageOrBuilder.class.isAssignableFrom(clazz)) {
+            try {
+                Method newBuilderMethod = clazz.getMethod("newBuilder", null);
+                Message.Builder builder = (Message.Builder) newBuilderMethod.invoke(null);
+                JsonFormat.parser().merge(json, builder);
+                Message message = builder.build();
+                if (clazz.isAssignableFrom(message.getClass())) {
+                    return (T) message;
+                } else {
+                    throw new IllegalArgumentException("Incompatible types");
+                }
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | IOException e) {
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } else {
+            try {
+                return mapper.readValue(json, clazz);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }
