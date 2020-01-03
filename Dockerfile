@@ -27,7 +27,8 @@ FROM alpine:latest
 #
 COPY --from=build /linked /jdk/
 COPY service/target/libs /app/lib/
-COPY service/target/catalog-service-*.jar /app/lib/
+COPY service/target/catalog-service.jar /app/lib/
+COPY service/target/catalog-service.jar /app/lib/
 COPY service/target/classes/logback.xml /app/conf/
 COPY service/target/classes/logback-bip.xml /app/conf/
 COPY service/target/classes/application.yaml /app/conf/
