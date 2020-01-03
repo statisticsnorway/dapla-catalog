@@ -132,8 +132,8 @@ steps:
 services:
   - name: bigtable
     image: statisticsnorway/bigtable-emulator
-      ports:
-        - 9035:9035
+    ports:
+    - 9035:9035
 
 ---
 kind: secret
