@@ -1,7 +1,6 @@
 package no.ssb.dapla.catalog.dataset;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.grpc.Channel;
 import no.ssb.dapla.catalog.Application;
 import no.ssb.dapla.catalog.DatasetAssert;
@@ -214,27 +213,24 @@ class DatasetServiceTest {
         return dataset;
     }
 
-    Dataset readDataset(String datasetId) throws InvalidProtocolBufferException {
+    Dataset readDataset(String datasetId) {
         return application.get(DatasetRepository.class).get(datasetId).join();
     }
 
     @Test
-    void thatGetWorks() throws InvalidProtocolBufferException {
+    void thatGetWorks() {
         Dataset expectedDataset = createDataset("1", Dataset.DatasetState.PRODUCT, Dataset.Valuation.INTERNAL, "f1");
-        String body = testClient.get("dataset/1").expect200Ok().body();
-        System.out.printf("%s%n", body);
-        Dataset dataset = Dataset.parseFrom(body.getBytes());
-
+        Dataset dataset = testClient.get("/dataset/1", Dataset.class, Dataset.newBuilder()).expect200Ok().body();
         assertEquals(expectedDataset, dataset);
     }
 
     @Test
     void thatGetNonExistentRoleRespondsWith404NotFound() {
-        testClient.get("dataset/2").expect404NotFound();
+        testClient.get("/dataset/2").expect404NotFound();
     }
 
     @Test
-    void thatPutWorks() throws InvalidProtocolBufferException {
+    void thatPutWorks() {
         Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "f2");
         ResponseHelper<String> helper = testClient.put("/dataset/2", expectedDataset).expect201Created();
         assertEquals("/dataset/2", helper.response().headers().firstValue("Location").orElseThrow());

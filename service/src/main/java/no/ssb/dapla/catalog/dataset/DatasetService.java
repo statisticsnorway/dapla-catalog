@@ -2,11 +2,13 @@ package no.ssb.dapla.catalog.dataset;
 
 import io.grpc.stub.StreamObserver;
 import io.helidon.common.http.Http;
+import io.helidon.common.http.MediaType;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
+import no.ssb.dapla.catalog.JacksonUtils;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
@@ -30,7 +32,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     @Override
     public void update(Routing.Rules rules) {
         rules.get("/{datasetId}", this::httpGet);
-        rules.put("/{datasetId}", Handler.create(Dataset.class, this::httpPut));
+        rules.put("/{datasetId}", Handler.create(String.class, this::httpPut));
         rules.delete("/{datasetId}", this::httpDelete);
     }
 
@@ -41,23 +43,42 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     if (dataset == null) {
                         response.status(Http.Status.NOT_FOUND_404).send();
                     } else {
-                        response.send(dataset);
+                        String json = JacksonUtils.toString(dataset);
+                        response.headers().contentType(MediaType.APPLICATION_JSON);
+                        response.send(json);
                     }
+                })
+                .exceptionally(t -> {
+                    response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
+                    return null;
                 });
-
     }
 
-    void httpPut(ServerRequest request, ServerResponse response, Dataset dataset) {
+    void httpPut(ServerRequest request, ServerResponse response, String datasetJson) {
         String datasetId = request.path().param("datasetId");
+        Dataset dataset = JacksonUtils.toPojo(datasetJson, Dataset.class, Dataset.newBuilder());
         if (!datasetId.equals(dataset.getId())) {
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
         }
-        repository.create(dataset);
+        repository.create(dataset)
+                .thenRun(() -> {
+                    response.headers().add("Location", "/dataset/" + datasetId);
+                    response.status(Http.Status.CREATED_201).send();
+                })
+                .exceptionally(t -> {
+                    response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
+                    return null;
+                });
     }
 
     void httpDelete(ServerRequest request, ServerResponse response) {
         String datasetId = request.path().param("datasetId");
-        repository.delete(datasetId);
+        repository.delete(datasetId)
+                .thenRun(response::send)
+                .exceptionally(t -> {
+                    response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
+                    return null;
+                });
     }
 
     @Override

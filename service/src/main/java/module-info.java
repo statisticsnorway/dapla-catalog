@@ -44,6 +44,10 @@ module no.ssb.dapla.catalog {
     requires perfmark.api; // needed by grpc-client
     requires javax.inject; // required by io.helidon.grpc.server
     requires java.annotation;
+    requires com.fasterxml.jackson.module.paramnames;
+    requires com.fasterxml.jackson.datatype.jdk8;
+    requires com.fasterxml.jackson.datatype.jsr310;
+    requires com.google.protobuf.util;
 
     opens no.ssb.dapla.catalog to com.fasterxml.jackson.databind;
     opens no.ssb.dapla.catalog.dataset to com.fasterxml.jackson.databind;

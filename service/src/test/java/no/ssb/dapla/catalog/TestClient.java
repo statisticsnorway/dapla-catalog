@@ -1,6 +1,6 @@
 package no.ssb.dapla.catalog;
 
-import no.ssb.dapla.catalog.JacksonUtils;
+import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,7 +13,11 @@ import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
 
 public final class TestClient {
 
@@ -167,6 +171,48 @@ public final class TestClient {
 
     public ResponseHelper<String> get(String uri) {
         return get(uri, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+    }
+
+    static class ProtobufSubscriber<R> implements HttpResponse.BodySubscriber<R> {
+        final Class<R> clazz;
+        final Message.Builder builder;
+        final HttpResponse.BodySubscriber<String> stringBodySubscriber;
+
+        ProtobufSubscriber(Class<R> clazz, Message.Builder builder, HttpResponse.BodySubscriber<String> stringBodySubscriber) {
+            this.clazz = clazz;
+            this.builder = builder;
+            this.stringBodySubscriber = stringBodySubscriber;
+        }
+
+        @Override
+        public void onSubscribe(Flow.Subscription subscription) {
+            stringBodySubscriber.onSubscribe(subscription);
+        }
+
+        @Override
+        public void onNext(List<ByteBuffer> item) {
+            stringBodySubscriber.onNext(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            stringBodySubscriber.onError(throwable);
+        }
+
+        @Override
+        public void onComplete() {
+            stringBodySubscriber.onComplete();
+        }
+
+        @Override
+        public CompletionStage<R> getBody() {
+            return stringBodySubscriber.getBody()
+                    .thenApply(body -> JacksonUtils.toPojo(body, clazz, builder));
+        }
+    }
+
+    public <R> ResponseHelper<R> get(String uri, Class<R> clazz, Message.Builder builder) {
+        return get(uri, responseInfo -> new ProtobufSubscriber(clazz, builder, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8).apply(responseInfo)));
     }
 
     public <R> ResponseHelper<R> get(String uri, HttpResponse.BodyHandler<R> bodyHandler) {
