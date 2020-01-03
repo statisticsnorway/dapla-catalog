@@ -131,7 +131,7 @@ steps:
 
 services:
   - name: bigtable
-    build: ./localenv
+    image: statisticsnorway/bigtable-emulator
       ports:
         - 9035:9035
 
