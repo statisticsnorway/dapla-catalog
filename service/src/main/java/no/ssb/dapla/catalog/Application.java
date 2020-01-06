@@ -100,12 +100,21 @@ public class Application {
         // The same thing happens with the name resolvers.
         NameResolverRegistry.getDefaultRegistry().register(new DnsNameResolverProvider());
 
+        LOG.info("Creating Bigtable admin client . . .");
+
         BigtableTableAdminClient adminClient = createBigtableAdminClient(config.get("bigtable"));
         put(BigtableTableAdminClient.class, adminClient);
+
+        LOG.info("Created Bigtable admin client!");
+
         createBigtableSchemaIfNotExists(config.get("bigtable"), adminClient);
+
+        LOG.info("Creating Bigtable data client . . .");
 
         BigtableDataClient dataClient = createBigtableDataClient(config.get("bigtable"));
         put(BigtableDataClient.class, dataClient);
+
+        LOG.info("Created Bigtable data client!");
 
         DatasetRepository repository = new DatasetRepository(dataClient);
         put(DatasetRepository.class, repository);
