@@ -5,4 +5,12 @@ services:
   bigtable:
     build: ./localenv
     ports:
-      - 9035:9035
+    - 9035:9035
+
+  catalog:
+    image: dapla-catalog:dev
+    ports:
+    - 8070:8070
+    - 1408:1408
+    environment:
+      BIGTABLE_HOST: bigtable

@@ -37,6 +37,7 @@ ENV PATH=/jdk/bin:$PATH
 
 WORKDIR /app
 
+EXPOSE 8070
 EXPOSE 1408
 
-CMD ["java", "--add-exports=io.grpc/io.opencensus.common=gax", "--add-exports=io.grpc/io.opencensus.trace=gax", "--add-exports=io.grpc/io.opencensus.tags=google.cloud.bigtable", "--add-exports=io.grpc/io.opencensus.stats=google.cloud.bigtable", "-p", "/app/lib", "-m", "no.ssb.dapla.catalog/no.ssb.dapla.catalog.Application"]
+CMD ["java", "--add-exports=io.grpc/io.opencensus.common=gax", "--add-exports=io.grpc/io.opencensus.trace=gax", "--add-exports=io.grpc/io.opencensus.tags=google.cloud.bigtable", "--add-exports=io.grpc/io.opencensus.stats=google.cloud.bigtable", "--add-exports=io.grpc/io.opencensus.trace.propagation=com.google.api.client", "-p", "/app/lib", "-m", "no.ssb.dapla.catalog/no.ssb.dapla.catalog.Application"]
