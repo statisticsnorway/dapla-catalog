@@ -1,6 +1,7 @@
 package no.ssb.dapla.catalog;
 
 import ch.qos.logback.classic.util.ContextInitializer;
+import com.google.auth.oauth2.ComputeEngineCredentials;
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminSettings;
 import com.google.cloud.bigtable.admin.v2.models.CreateTableRequest;
@@ -154,7 +155,7 @@ public class Application {
                         .newBuilder()
                         .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
                         .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-//                        .setCredentialsProvider(GoogleCredentialsProvider.newBuilder().build()) //TODO
+                        .setCredentialsProvider(() -> ComputeEngineCredentials.create())
                         .build();
             }
             return BigtableTableAdminClient.create(settings);
@@ -176,7 +177,7 @@ public class Application {
                     .newBuilder()
                     .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
                     .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-//                        .setCredentialsProvider(GoogleCredentialsProvider.newBuilder().build()) //TODO
+                    .setCredentialsProvider(() -> ComputeEngineCredentials.create())
                     .build();
         }
         try {

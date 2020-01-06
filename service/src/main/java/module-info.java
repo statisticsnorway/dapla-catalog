@@ -22,6 +22,8 @@ module no.ssb.dapla.catalog {
     requires com.google.api.apicommon;
     requires google.cloud.bigtable;
     requires gax;
+    requires com.google.auth;
+    requires com.google.auth.oauth2;
 
     requires com.google.common;
     requires no.ssb.dapla.catalog.protobuf;
