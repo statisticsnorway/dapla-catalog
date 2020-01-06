@@ -9,5 +9,6 @@ Add the following jvm options when running tests or application with module-syst
 --add-exports=io.grpc/io.opencensus.stats=google.cloud.bigtable
 --add-exports=io.grpc/io.opencensus.trace=com.google.api.client
 --add-exports=io.grpc/io.opencensus.trace.propagation=com.google.api.client
+--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util
 ```
 
