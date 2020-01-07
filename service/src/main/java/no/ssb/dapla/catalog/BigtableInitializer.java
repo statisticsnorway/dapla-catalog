@@ -11,10 +11,7 @@ import io.helidon.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -49,7 +46,13 @@ public class BigtableInitializer {
                     .orElseThrow(() -> new RuntimeException("'service-account.path' missing"))
             );
             LOG.info("Creating Bigtable admin-client");
-            return createRealBigtableTableAdminClient(serviceAccountKeyFilePath, projectId, instanceId);
+            GoogleCredentials credentials;
+            try {
+                credentials = ServiceAccountCredentials.fromStream(Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return createRealBigtableTableAdminClient(credentials, projectId, instanceId);
         }
     }
 
@@ -66,16 +69,14 @@ public class BigtableInitializer {
         }
     }
 
-    static BigtableTableAdminClient createRealBigtableTableAdminClient(Path serviceAccountKeyFilePath, String projectId, String instanceId) {
+    static BigtableTableAdminClient createRealBigtableTableAdminClient(GoogleCredentials credentials, String projectId, String instanceId) {
+        GoogleCredentials scopedCredentials = credentials.createScoped(Collections.singletonList("https://www.googleapis.com/auth/bigtable.admin.table"));
         try {
-            GoogleCredentials credentials = ServiceAccountCredentials.fromStream(
-                    Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ))
-                    .createScoped(Collections.singletonList("https://www.googleapis.com/auth/bigtable.admin.table"));
             BigtableTableAdminSettings settings = BigtableTableAdminSettings
                     .newBuilder()
                     .setProjectId(projectId)
                     .setInstanceId(instanceId)
-                    .setCredentialsProvider(() -> credentials)
+                    .setCredentialsProvider(() -> scopedCredentials)
                     .build();
             return BigtableTableAdminClient.create(settings);
         } catch (IOException e) {
@@ -96,7 +97,14 @@ public class BigtableInitializer {
                     .orElseThrow(() -> new RuntimeException("'service-account.path' missing"))
             );
             LOG.info("Creating Bigtable data-client");
-            return createRealBigtableDataClient(serviceAccountKeyFilePath, projectId, instanceId);
+            GoogleCredentials credentials;
+            try {
+                credentials = ServiceAccountCredentials.fromStream(
+                        Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return createRealBigtableDataClient(credentials, projectId, instanceId);
         }
     }
 
@@ -113,25 +121,14 @@ public class BigtableInitializer {
         }
     }
 
-    static BigtableDataClient createRealBigtableDataClient(Path serviceAccountKeyFilePath, String projectId, String instanceId) {
+    static BigtableDataClient createRealBigtableDataClient(GoogleCredentials credentials, String projectId, String instanceId) {
         try {
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(
-                    Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    if (line.contains("private_key_id")) {
-                        LOG.info("From service-account-key file:\n{}", line);
-                    }
-                }
-            }
-            GoogleCredentials credentials = ServiceAccountCredentials.fromStream(
-                    Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ))
-                    .createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+            GoogleCredentials scopedCredentials = credentials.createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
             BigtableDataSettings settings = BigtableDataSettings
                     .newBuilder()
                     .setProjectId(projectId)
                     .setInstanceId(instanceId)
-                    .setCredentialsProvider(() -> credentials)
+                    .setCredentialsProvider(() -> scopedCredentials)
                     .build();
             return BigtableDataClient.create(settings);
         } catch (IOException e) {
