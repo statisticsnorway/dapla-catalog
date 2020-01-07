@@ -21,16 +21,11 @@ public class BigtableInitializer {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigtableInitializer.class);
 
-    static void initializeBigtableSchema(Config bigtableConfig) {
-        if (bigtableConfig.get("generate-schema").asBoolean().orElse(false)) {
-            LOG.info("Initializing Bigtable schema");
-            try (BigtableTableAdminClient adminClient = BigtableInitializer.createBigtableAdminClient(bigtableConfig)) {
-                BigtableInitializer.createBigtableSchemaIfNotExists(bigtableConfig, adminClient);
-            }
-        }
-    }
-
     static void createBigtableSchemaIfNotExists(Config bigtableConfig, BigtableTableAdminClient adminClient) {
+        if (!bigtableConfig.get("generate-schema").asBoolean().orElse(false)) {
+            return;
+        }
+        LOG.info("Initializing Bigtable schema");
         String tableId = bigtableConfig.get("table-id").asString().orElse("dataset");
         if (!adminClient.exists(tableId)) {
             CreateTableRequest createTableRequest = CreateTableRequest.of(tableId).addFamily(bigtableConfig.get("column-family").asString().orElse("document"));

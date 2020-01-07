@@ -1,6 +1,7 @@
 package no.ssb.dapla.catalog;
 
 import ch.qos.logback.classic.util.ContextInitializer;
+import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import io.grpc.LoadBalancerRegistry;
 import io.grpc.NameResolverRegistry;
@@ -87,7 +88,10 @@ public class Application {
 
         applyGrpcProvidersWorkaround();
 
-        BigtableInitializer.initializeBigtableSchema(config.get("bigtable"));
+        BigtableTableAdminClient bigtableTableAdminClient = BigtableInitializer.createBigtableAdminClient(config.get("bigtable"));
+        put(BigtableTableAdminClient.class, bigtableTableAdminClient);
+
+        BigtableInitializer.createBigtableSchemaIfNotExists(config.get("bigtable"), bigtableTableAdminClient);
 
         BigtableDataClient dataClient = BigtableInitializer.createBigtableDataClient(config.get("bigtable"));
         put(BigtableDataClient.class, dataClient);
@@ -138,6 +142,7 @@ public class Application {
         get(WebServer.class).shutdown()
                 .thenCombine(get(GrpcServer.class).shutdown(), ((webServer, grpcServer) -> this))
                 .thenCombine(CompletableFuture.runAsync(() -> get(BigtableDataClient.class).close()), (app, v) -> this)
+                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close()), (app, v) -> this)
                 .toCompletableFuture().orTimeout(2, TimeUnit.SECONDS).join();
         return this;
     }
