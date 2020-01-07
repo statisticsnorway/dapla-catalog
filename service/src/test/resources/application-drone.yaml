@@ -3,9 +3,11 @@ grpcserver:
 
 bigtable:
   emulator: true
+  generate-schema: true
   host: bigtable
   port: 9035
   project-id: my-project
   instance-id: my-instance
   table-id: dataset
   column-family: document
+  credential-provider: default
