@@ -42,8 +42,11 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
 
     void httpGet(ServerRequest request, ServerResponse response) {
         String datasetId = request.path().param("datasetId");
-        repository.get(datasetId)
-                .orTimeout(5, TimeUnit.SECONDS)
+        CompletableFuture<Dataset> future = repository.get(datasetId);
+        if (!request.queryParams().first("notimeout").isPresent()) {
+            future.orTimeout(5, TimeUnit.SECONDS);
+        }
+        future
                 .thenAccept(dataset -> {
                     if (dataset == null) {
                         response.status(Http.Status.NOT_FOUND_404).send();
@@ -66,8 +69,11 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
         if (!datasetId.equals(dataset.getId())) {
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
         }
-        repository.create(dataset)
-                .orTimeout(5, TimeUnit.SECONDS)
+        CompletableFuture<Void> future = repository.create(dataset);
+        if (!request.queryParams().first("notimeout").isPresent()) {
+            future.orTimeout(5, TimeUnit.SECONDS);
+        }
+        future
                 .thenRun(() -> {
                     response.headers().add("Location", "/dataset/" + datasetId);
                     response.status(Http.Status.CREATED_201).send();
@@ -81,8 +87,11 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
 
     void httpDelete(ServerRequest request, ServerResponse response) {
         String datasetId = request.path().param("datasetId");
-        repository.delete(datasetId)
-                .orTimeout(5, TimeUnit.SECONDS)
+        CompletableFuture<Integer> future = repository.delete(datasetId);
+        if (!request.queryParams().first("notimeout").isPresent()) {
+            future.orTimeout(5, TimeUnit.SECONDS);
+        }
+        future
                 .thenRun(response::send)
                 .exceptionally(t -> {
                     LOG.error(String.format("While serving %s uri: %s", request.method().name(), request.uri()), t);
