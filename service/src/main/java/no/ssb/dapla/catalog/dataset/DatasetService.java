@@ -17,11 +17,15 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase implements Service {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DatasetService.class);
 
     final DatasetRepository repository;
 
@@ -39,6 +43,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     void httpGet(ServerRequest request, ServerResponse response) {
         String datasetId = request.path().param("datasetId");
         repository.get(datasetId)
+                .orTimeout(5, TimeUnit.SECONDS)
                 .thenAccept(dataset -> {
                     if (dataset == null) {
                         response.status(Http.Status.NOT_FOUND_404).send();
@@ -49,6 +54,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     }
                 })
                 .exceptionally(t -> {
+                    LOG.error(String.format("While serving %s uri: %s", request.method().name(), request.uri()), t);
                     response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
                     return null;
                 });
@@ -61,11 +67,13 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
         }
         repository.create(dataset)
+                .orTimeout(5, TimeUnit.SECONDS)
                 .thenRun(() -> {
                     response.headers().add("Location", "/dataset/" + datasetId);
                     response.status(Http.Status.CREATED_201).send();
                 })
                 .exceptionally(t -> {
+                    LOG.error(String.format("While serving %s uri: %s", request.method().name(), request.uri()), t);
                     response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
                     return null;
                 });
@@ -74,8 +82,10 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     void httpDelete(ServerRequest request, ServerResponse response) {
         String datasetId = request.path().param("datasetId");
         repository.delete(datasetId)
+                .orTimeout(5, TimeUnit.SECONDS)
                 .thenRun(response::send)
                 .exceptionally(t -> {
+                    LOG.error(String.format("While serving %s uri: %s", request.method().name(), request.uri()), t);
                     response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
                     return null;
                 });
@@ -94,6 +104,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
+                    LOG.error(String.format("While serving grpc get for dataset-id %s", request.getId()), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });
@@ -115,6 +126,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
+                    LOG.error(String.format("While serving grpc save for dataset-id %s", request.getDataset().getId()), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });
@@ -129,6 +141,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
+                    LOG.error(String.format("While serving grpc delete for dataset-id %s", request.getId()), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });
