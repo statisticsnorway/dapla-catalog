@@ -14,5 +14,9 @@ bigtable:
   instance-id: my-instance
   table-id: dataset
   column-family: document
-  service-account:
-    path: secret/bigtable_sa_key.json
+  credential-provider: default
+  credentials:
+    service-account:
+      path: /conf/dapla-catalog-bigtable-test.json
+    default:
+    compute-engine:

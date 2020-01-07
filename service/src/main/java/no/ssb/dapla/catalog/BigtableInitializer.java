@@ -1,5 +1,6 @@
 package no.ssb.dapla.catalog;
 
+import com.google.auth.oauth2.ComputeEngineCredentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
@@ -20,6 +21,30 @@ import java.util.Collections;
 public class BigtableInitializer {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigtableInitializer.class);
+
+    private static GoogleCredentials getCredentials(Config bigtableConfig) {
+        String configuredProviderChoice = bigtableConfig.get("credential-provider").asString().orElse("default");
+        if ("service-account".equalsIgnoreCase(configuredProviderChoice)) {
+            LOG.info("Running with the service-account google bigtable credentials provider");
+            Path serviceAccountKeyFilePath = Path.of(bigtableConfig.get("credentials.service-account.path").asString()
+                    .orElseThrow(() -> new RuntimeException("'credentials.service-account.path' missing from bigtable config"))
+            );
+            GoogleCredentials credentials;
+            try {
+                credentials = ServiceAccountCredentials.fromStream(
+                        Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return credentials;
+        } else if ("compute-engine".equalsIgnoreCase(configuredProviderChoice)) {
+            LOG.info("Running with the compute-engine google bigtable credentials provider");
+            return ComputeEngineCredentials.create();
+        } else { // default
+            LOG.info("Running with the default google bigtable credentials provider");
+            return null;
+        }
+    }
 
     static void createBigtableSchemaIfNotExists(Config bigtableConfig, BigtableTableAdminClient adminClient) {
         if (!bigtableConfig.get("generate-schema").asBoolean().orElse(false)) {
@@ -42,16 +67,8 @@ public class BigtableInitializer {
             LOG.info("Creating Bigtable emulator admin-client");
             return createEmulatorBigtableTableAdminClient(host, port, projectId, instanceId);
         } else {
-            Path serviceAccountKeyFilePath = Path.of(bigtableConfig.get("service-account.path").asString()
-                    .orElseThrow(() -> new RuntimeException("'service-account.path' missing"))
-            );
             LOG.info("Creating Bigtable admin-client");
-            GoogleCredentials credentials;
-            try {
-                credentials = ServiceAccountCredentials.fromStream(Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            GoogleCredentials credentials = getCredentials(bigtableConfig);
             return createRealBigtableTableAdminClient(credentials, projectId, instanceId);
         }
     }
@@ -70,14 +87,15 @@ public class BigtableInitializer {
     }
 
     static BigtableTableAdminClient createRealBigtableTableAdminClient(GoogleCredentials credentials, String projectId, String instanceId) {
-        GoogleCredentials scopedCredentials = credentials.createScoped(Collections.singletonList("https://www.googleapis.com/auth/bigtable.admin.table"));
         try {
-            BigtableTableAdminSettings settings = BigtableTableAdminSettings
+            BigtableTableAdminSettings.Builder builder = BigtableTableAdminSettings
                     .newBuilder()
                     .setProjectId(projectId)
-                    .setInstanceId(instanceId)
-                    .setCredentialsProvider(() -> scopedCredentials)
-                    .build();
+                    .setInstanceId(instanceId);
+            if (credentials != null) {
+                builder.setCredentialsProvider(() -> credentials.createScoped(Collections.singletonList("https://www.googleapis.com/auth/bigtable.admin.table")));
+            }
+            BigtableTableAdminSettings settings = builder.build();
             return BigtableTableAdminClient.create(settings);
         } catch (IOException e) {
             throw new ApplicationInitializationException("Failed to connect to bigtable", e);
@@ -93,17 +111,8 @@ public class BigtableInitializer {
             LOG.info("Creating Bigtable emulator data-client");
             return createEmulatorBigtableDataClient(host, port, projectId, instanceId);
         } else {
-            Path serviceAccountKeyFilePath = Path.of(bigtableConfig.get("service-account.path").asString()
-                    .orElseThrow(() -> new RuntimeException("'service-account.path' missing"))
-            );
             LOG.info("Creating Bigtable data-client");
-            GoogleCredentials credentials;
-            try {
-                credentials = ServiceAccountCredentials.fromStream(
-                        Files.newInputStream(serviceAccountKeyFilePath, StandardOpenOption.READ));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            GoogleCredentials credentials = getCredentials(bigtableConfig);
             return createRealBigtableDataClient(credentials, projectId, instanceId);
         }
     }
@@ -123,13 +132,14 @@ public class BigtableInitializer {
 
     static BigtableDataClient createRealBigtableDataClient(GoogleCredentials credentials, String projectId, String instanceId) {
         try {
-            GoogleCredentials scopedCredentials = credentials.createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
-            BigtableDataSettings settings = BigtableDataSettings
+            BigtableDataSettings.Builder builder = BigtableDataSettings
                     .newBuilder()
                     .setProjectId(projectId)
-                    .setInstanceId(instanceId)
-                    .setCredentialsProvider(() -> scopedCredentials)
-                    .build();
+                    .setInstanceId(instanceId);
+            if (credentials != null) {
+                builder.setCredentialsProvider(() -> credentials.createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")));
+            }
+            BigtableDataSettings settings = builder.build();
             return BigtableDataClient.create(settings);
         } catch (IOException e) {
             throw new ApplicationInitializationException("Could not connect to bigtable", e);
