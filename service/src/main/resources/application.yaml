@@ -6,6 +6,7 @@ grpcserver:
   port: 1408
 
 bigtable:
+  generate-schema: true
   emulator: true
   host: localhost
   port: 9035
@@ -13,3 +14,5 @@ bigtable:
   instance-id: my-instance
   table-id: dataset
   column-family: document
+  service-account:
+    path: secret/bigtable_sa_key.json

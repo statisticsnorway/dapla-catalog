@@ -1,11 +1,7 @@
 package no.ssb.dapla.catalog;
 
 import ch.qos.logback.classic.util.ContextInitializer;
-import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
-import com.google.cloud.bigtable.admin.v2.BigtableTableAdminSettings;
-import com.google.cloud.bigtable.admin.v2.models.CreateTableRequest;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
-import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import io.grpc.LoadBalancerRegistry;
 import io.grpc.NameResolverRegistry;
 import io.grpc.internal.DnsNameResolverProvider;
@@ -27,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -90,30 +85,12 @@ public class Application {
     public Application(Config config) {
         put(Config.class, config);
 
-        // The shaded version of grpc from helidon does not include the service definition for
-        // PickFirstLoadBalancerProvider. This result in LoadBalancerRegistry not being able to
-        // find it. We register them manually here.
-        LoadBalancerRegistry.getDefaultRegistry().register(new PickFirstLoadBalancerProvider());
-        LoadBalancerRegistry.getDefaultRegistry().register(new HealthCheckingRoundRobinLoadBalancerProvider());
+        applyGrpcProvidersWorkaround();
 
-        // The same thing happens with the name resolvers.
-        NameResolverRegistry.getDefaultRegistry().register(new DnsNameResolverProvider());
+        BigtableInitializer.initializeBigtableSchema(config.get("bigtable"));
 
-        LOG.info("Creating Bigtable admin client . . .");
-
-        BigtableTableAdminClient adminClient = createBigtableAdminClient(config.get("bigtable"));
-        put(BigtableTableAdminClient.class, adminClient);
-
-        LOG.info("Created Bigtable admin client!");
-
-        createBigtableSchemaIfNotExists(config.get("bigtable"), adminClient);
-
-        LOG.info("Creating Bigtable data client . . .");
-
-        BigtableDataClient dataClient = createBigtableDataClient(config.get("bigtable"));
+        BigtableDataClient dataClient = BigtableInitializer.createBigtableDataClient(config.get("bigtable"));
         put(BigtableDataClient.class, dataClient);
-
-        LOG.info("Created Bigtable data client!");
 
         DatasetRepository repository = new DatasetRepository(dataClient);
         put(DatasetRepository.class, repository);
@@ -141,64 +118,15 @@ public class Application {
         put(WebServer.class, webServer);
     }
 
-    private static void createBigtableSchemaIfNotExists(Config bigtableConfig, BigtableTableAdminClient adminClient) {
-        String tableId = bigtableConfig.get("table-id").asString().orElse("dataset");
-        if (!adminClient.exists(tableId)) {
-            CreateTableRequest createTableRequest = CreateTableRequest.of(tableId).addFamily(bigtableConfig.get("column-family").asString().orElse("document"));
-            adminClient.createTable(createTableRequest);
-        }
-    }
+    private void applyGrpcProvidersWorkaround() {
+        // The shaded version of grpc from helidon does not include the service definition for
+        // PickFirstLoadBalancerProvider. This result in LoadBalancerRegistry not being able to
+        // find it. We register them manually here.
+        LoadBalancerRegistry.getDefaultRegistry().register(new PickFirstLoadBalancerProvider());
+        LoadBalancerRegistry.getDefaultRegistry().register(new HealthCheckingRoundRobinLoadBalancerProvider());
 
-    private static BigtableTableAdminClient createBigtableAdminClient(Config bigtableConfig) {
-        try {
-            BigtableTableAdminSettings settings;
-            if (bigtableConfig.get("emulator").asBoolean().orElse(true)) {
-                settings = BigtableTableAdminSettings
-                        .newBuilderForEmulator(bigtableConfig.get("host").asString().orElse("localhost"), bigtableConfig.get("port").asInt().orElse(9035))
-                        .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
-                        .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-                        .build();
-            } else {
-                settings = BigtableTableAdminSettings
-                        .newBuilder()
-                        .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
-                        .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-                        //.setCredentialsProvider(() -> ComputeEngineCredentials.create())
-                        .build();
-            }
-            return BigtableTableAdminClient.create(settings);
-        } catch (IOException e) {
-            throw new ApplicationInitializationException("Failed to connect to bigtable", e);
-        }
-    }
-
-    private static BigtableDataClient createBigtableDataClient(Config bigtableConfig) {
-        BigtableDataSettings settings;
-        if (bigtableConfig.get("emulator").asBoolean().orElse(true)) {
-            settings = BigtableDataSettings
-                    .newBuilderForEmulator(bigtableConfig.get("host").asString().orElse("localhost"), bigtableConfig.get("port").asInt().orElse(9035))
-                    .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
-                    .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-                    .build();
-        } else {
-            settings = BigtableDataSettings
-                    .newBuilder()
-                    .setProjectId(bigtableConfig.get("project-id").asString().orElse("my-project"))
-                    .setInstanceId(bigtableConfig.get("instance-id").asString().orElse("my-instance"))
-                    //.setCredentialsProvider(() -> ComputeEngineCredentials.create())
-                    .build();
-        }
-        try {
-            return BigtableDataClient.create(settings);
-        } catch (IOException e) {
-            throw new ApplicationInitializationException("Could not connect to bigtable", e);
-        }
-    }
-
-    static final class ApplicationInitializationException extends RuntimeException {
-        public ApplicationInitializationException(String message, Throwable cause) {
-            super(message, cause);
-        }
+        // The same thing happens with the name resolvers.
+        NameResolverRegistry.getDefaultRegistry().register(new DnsNameResolverProvider());
     }
 
     public CompletionStage<Application> start() {
@@ -210,7 +138,6 @@ public class Application {
         get(WebServer.class).shutdown()
                 .thenCombine(get(GrpcServer.class).shutdown(), ((webServer, grpcServer) -> this))
                 .thenCombine(CompletableFuture.runAsync(() -> get(BigtableDataClient.class).close()), (app, v) -> this)
-                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close()), (app, v) -> this)
                 .toCompletableFuture().orTimeout(2, TimeUnit.SECONDS).join();
         return this;
     }
