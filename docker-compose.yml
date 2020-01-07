@@ -3,7 +3,7 @@ version: '3.7'
 services:
 
   bigtable:
-    build: ./localenv
+    image: statisticsnorway/bigtable-emulator
     ports:
     - 9035:9035
 
