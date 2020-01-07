@@ -39,11 +39,13 @@ public class BigtableInitializer {
         if (bigtableConfig.get("emulator").asBoolean().orElse(true)) {
             String host = bigtableConfig.get("host").asString().orElse("localhost");
             int port = bigtableConfig.get("port").asInt().orElse(9035);
+            LOG.info("Creating Bigtable emulator admin-client");
             return createEmulatorBigtableTableAdminClient(host, port, projectId, instanceId);
         } else {
             Path serviceAccountKeyFilePath = Path.of(bigtableConfig.get("service-account.path").asString()
                     .orElseThrow(() -> new RuntimeException("'service-account.path' missing"))
             );
+            LOG.info("Creating Bigtable admin-client");
             return createRealBigtableTableAdminClient(serviceAccountKeyFilePath, projectId, instanceId);
         }
     }
