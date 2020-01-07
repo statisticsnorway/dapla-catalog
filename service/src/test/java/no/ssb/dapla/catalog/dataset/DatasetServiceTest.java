@@ -16,7 +16,7 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
 import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -39,8 +39,8 @@ class DatasetServiceTest {
     @Inject
     TestClient testClient;
 
-    @AfterEach
-    public void afterEach() {
+    @BeforeEach
+    public void beforeEach() {
         application.get(BigtableTableAdminClient.class).dropAllRows("dataset");
     }
 
