@@ -24,6 +24,7 @@ module no.ssb.dapla.catalog {
     requires gax;
     requires com.google.auth;
     requires com.google.auth.oauth2;
+    requires jdk.crypto.cryptoki; // required by bigtable apis
 
     requires com.google.common;
     requires no.ssb.dapla.catalog.protobuf;
