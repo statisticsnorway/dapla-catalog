@@ -11,7 +11,13 @@ import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.helidon.metrics.RegistryFactory;
 import no.ssb.dapla.catalog.protobuf.Dataset;
+
+import org.eclipse.microprofile.metrics.Counter;
+import org.eclipse.microprofile.metrics.Meter;
+import org.eclipse.microprofile.metrics.MetricRegistry;
+import org.eclipse.microprofile.metrics.Timer;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -23,6 +29,15 @@ public class DatasetRepository {
     private static final String TABLE_ID = "dataset";
     private static final String COLUMN_FAMILY = "document";
     private static final String COLUMN_QUALIFIER = "dataset";
+
+    private final Counter createDatasetCounter = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).counter("createDatasetCounter");
+    private final Counter deleteDatasetCounter = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).counter("deleteDatasetCounter");
+
+    private final Meter datasetCreateMeter = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).meter("datasetCreateMeter");
+    private final Meter datasetDeleteMeter = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).meter("datasetDeleteMeter");
+
+    private final Timer datasetCreateTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("datasetCreateTimer");
+    private final Timer datasetDeleteTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("datasetDeleteTimer");
 
     public DatasetRepository(BigtableDataClient dataClient) {
         this.dataClient = dataClient;
@@ -102,6 +117,9 @@ public class DatasetRepository {
 
             public void onSuccess(Void ignored) {
                 future.complete(ignored);
+                createDatasetCounter.inc();
+                datasetCreateMeter.mark();
+                datasetCreateTimer.time();
             }
         }, MoreExecutors.directExecutor());
 
@@ -135,6 +153,9 @@ public class DatasetRepository {
                     @Override
                     public void onSuccess(Void ignored) {
                         future.complete(rows.size());
+                        deleteDatasetCounter.inc();
+                        datasetDeleteMeter.mark();
+                        datasetDeleteTimer.time();
                     }
                 }, MoreExecutors.directExecutor());
             }
