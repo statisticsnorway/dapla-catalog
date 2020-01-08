@@ -65,6 +65,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
         String datasetId = request.path().param("datasetId");
         if (!datasetId.equals(dataset.getId())) {
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
+            return;
         }
         CompletableFuture<Void> future = repository.create(dataset);
         if (!request.queryParams().first("notimeout").isPresent()) {
