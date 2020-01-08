@@ -22,4 +22,5 @@ message Dataset {
     }
     DatasetState state = 3;
     repeated string locations = 4;
+    string pseudoConfig = 5;
 }

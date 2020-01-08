@@ -12,7 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
 
-import static no.ssb.dapla.catalog.DatasetAssert.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 @ExtendWith(IntegrationTestExtension.class)
 class DatasetRepositoryTest {

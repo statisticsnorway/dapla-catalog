@@ -3,7 +3,6 @@ package no.ssb.dapla.catalog.dataset;
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import io.grpc.Channel;
 import no.ssb.dapla.catalog.Application;
-import no.ssb.dapla.catalog.DatasetAssert;
 import no.ssb.dapla.catalog.IntegrationTestExtension;
 import no.ssb.dapla.catalog.ResponseHelper;
 import no.ssb.dapla.catalog.TestClient;
@@ -15,7 +14,6 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +23,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(IntegrationTestExtension.class)
@@ -82,27 +81,28 @@ class DatasetServiceTest {
                 .setId("1")
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.OUTPUT)
+                .setPseudoConfig("pseudo_conf")
                 .addLocations("f1")
                 .build();
         repositoryCreate(dataset);
-
 
         repositoryCreate(
                 Dataset.newBuilder()
                         .setId("2")
                         .setValuation(Dataset.Valuation.SENSITIVE)
                         .setState(Dataset.DatasetState.RAW)
+                        .setPseudoConfig("pseudo_conf_2")
                         .addLocations("file")
                         .addLocations("file2")
                         .build()
         );
 
-        DatasetAssert.assertThat(get("1").getDataset()).isEqualTo(dataset);
+        assertThat(get("1").getDataset()).isEqualTo(dataset);
     }
 
     @Test
     void thatGetDoesntReturnADatasetWhenOneDoesntExist() {
-        Assertions.assertThat(get("does_not_exist").hasDataset()).isFalse();
+        assertThat(get("does_not_exist").hasDataset()).isFalse();
     }
 
     @Test
@@ -111,6 +111,7 @@ class DatasetServiceTest {
                 .setId("a_dataset")
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
+                .setPseudoConfig("config")
                 .build();
         repositoryCreate(old);
 
@@ -129,7 +130,7 @@ class DatasetServiceTest {
                         .build()
         );
 
-        DatasetAssert.assertThat(get("a_dataset", timestamp).getDataset()).isEqualTo(old);
+        assertThat(get("a_dataset", timestamp).getDataset()).isEqualTo(old);
     }
 
     @Test
@@ -142,7 +143,7 @@ class DatasetServiceTest {
                         .addLocations("a_location")
                         .build()
         );
-        Assertions.assertThat(get("dataset_from_after_timestamp", 100L).hasDataset()).isFalse();
+        assertThat(get("dataset_from_after_timestamp", 100L).hasDataset()).isFalse();
     }
 
     @Test
@@ -151,13 +152,14 @@ class DatasetServiceTest {
                 .setId("dataset_from_before_timestamp")
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.PRODUCT)
+                .setPseudoConfig("pC")
                 .addLocations("some_file")
                 .build();
         repositoryCreate(dataset);
 
         long timestamp = System.currentTimeMillis() + 50;
 
-        DatasetAssert.assertThat(get("dataset_from_before_timestamp", timestamp).getDataset()).isEqualTo(dataset);
+        assertThat(get("dataset_from_before_timestamp", timestamp).getDataset()).isEqualTo(dataset);
     }
 
     @Test
@@ -166,20 +168,22 @@ class DatasetServiceTest {
                 .setId("dataset_to_create")
                 .setValuation(Dataset.Valuation.SENSITIVE)
                 .setState(Dataset.DatasetState.OUTPUT)
+                .setPseudoConfig("pseudo_config")
                 .addLocations("file_location")
                 .build();
         save(ds1);
-        DatasetAssert.assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds1);
+        assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds1);
 
         Dataset ds2 = Dataset.newBuilder()
                 .setId("dataset_to_create")
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
+                .setPseudoConfig("another_pseudo_config")
                 .addLocations("file_location")
                 .addLocations("file_location_2")
                 .build();
         save(ds2);
-        DatasetAssert.assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds2);
+        assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds2);
     }
 
     @Test
@@ -192,7 +196,7 @@ class DatasetServiceTest {
                 .build();
         repositoryCreate(dataset);
         delete(dataset.getId());
-        DatasetAssert.assertThat(repositoryGet("dataset_to_delete")).isNull();
+        assertThat(repositoryGet("dataset_to_delete")).isNull();
     }
 
     @Test
@@ -200,26 +204,21 @@ class DatasetServiceTest {
         delete("does_not_exist");
     }
 
-
-    Dataset createDataset(String datasetId, Dataset.DatasetState datasetState, Dataset.Valuation datasetValuation, String location) {
+    Dataset createDataset(String datasetId, Dataset.DatasetState datasetState, Dataset.Valuation datasetValuation, String pseudoConfig, String location) {
         Dataset dataset = Dataset.newBuilder()
                 .setId(datasetId)
                 .setState(datasetState)
                 .setValuation(datasetValuation)
+                .setPseudoConfig(pseudoConfig)
                 .addLocations(location)
                 .build();
-        application.get(DatasetRepository.class).create(dataset);
-
+        repositoryCreate(dataset);
         return dataset;
-    }
-
-    Dataset readDataset(String datasetId) {
-        return application.get(DatasetRepository.class).get(datasetId).join();
     }
 
     @Test
     void thatGetWorks() {
-        Dataset expectedDataset = createDataset("1", Dataset.DatasetState.PRODUCT, Dataset.Valuation.INTERNAL, "f1");
+        Dataset expectedDataset = createDataset("1", Dataset.DatasetState.PRODUCT, Dataset.Valuation.INTERNAL, "pC1", "f1");
         Dataset dataset = testClient.get("/dataset/1", Dataset.class).expect200Ok().body();
         assertEquals(expectedDataset, dataset);
     }
@@ -231,10 +230,10 @@ class DatasetServiceTest {
 
     @Test
     void thatPutWorks() {
-        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "f2");
+        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "pC2", "f2");
         ResponseHelper<String> helper = testClient.put("/dataset/2", expectedDataset).expect201Created();
         assertEquals("/dataset/2", helper.response().headers().firstValue("Location").orElseThrow());
-        Dataset dataset = readDataset("2");
+        Dataset dataset = repositoryGet("2");
         assertEquals(expectedDataset, dataset);
     }
 }
