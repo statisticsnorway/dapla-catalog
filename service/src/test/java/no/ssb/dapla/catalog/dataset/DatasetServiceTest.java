@@ -236,4 +236,16 @@ class DatasetServiceTest {
         Dataset dataset = repositoryGet("2");
         assertEquals(expectedDataset, dataset);
     }
+
+    @Test
+    void thatPutReturns400WhenIdsDoesntMatch() {
+        Dataset ds = Dataset.newBuilder()
+                .setId("an_id")
+                .setValuation(Dataset.Valuation.SHIELDED)
+                .setState(Dataset.DatasetState.PRODUCT)
+                .setPseudoConfig("config")
+                .addLocations("f")
+                .build();
+        testClient.put("/dataset/a_different_id", ds).expect400BadRequest();
+    }
 }
