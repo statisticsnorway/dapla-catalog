@@ -1,10 +1,5 @@
 package no.ssb.dapla.catalog;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
@@ -14,9 +9,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-public class JacksonUtils {
-
-    public static final ObjectMapper mapper = (new ObjectMapper()).registerModule(new ParameterNamesModule()).registerModule(new Jdk8Module()).registerModule(new JavaTimeModule());
+public class JsonProtobufUtils {
 
     public static <T> String toString(T pojo) {
         if (MessageOrBuilder.class.isAssignableFrom(pojo.getClass())) {
@@ -25,18 +18,15 @@ public class JacksonUtils {
             } catch (InvalidProtocolBufferException e) {
                 throw new RuntimeException(e);
             }
-        }
-        try {
-            return mapper.writeValueAsString(pojo);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+        } else {
+            throw new RuntimeException("class is not compatible with " + MessageOrBuilder.class.getName());
         }
     }
 
     public static <T> T toPojo(String json, Class<T> clazz) {
         if (MessageOrBuilder.class.isAssignableFrom(clazz)) {
             try {
-                Method newBuilderMethod = clazz.getMethod("newBuilder", null);
+                Method newBuilderMethod = clazz.getMethod("newBuilder", (Class<?>[]) null);
                 Message.Builder builder = (Message.Builder) newBuilderMethod.invoke(null);
                 JsonFormat.parser().merge(json, builder);
                 Message message = builder.build();
@@ -49,11 +39,7 @@ public class JacksonUtils {
                 throw new RuntimeException(e);
             }
         } else {
-            try {
-                return mapper.readValue(json, clazz);
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            }
+            throw new RuntimeException("class is not compatible with " + MessageOrBuilder.class.getName());
         }
     }
 }

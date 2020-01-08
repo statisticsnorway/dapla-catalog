@@ -8,7 +8,6 @@ import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
-import no.ssb.dapla.catalog.JacksonUtils;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
@@ -36,7 +35,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     @Override
     public void update(Routing.Rules rules) {
         rules.get("/{datasetId}", this::httpGet);
-        rules.put("/{datasetId}", Handler.create(String.class, this::httpPut));
+        rules.put("/{datasetId}", Handler.create(Dataset.class, this::httpPut));
         rules.delete("/{datasetId}", this::httpDelete);
     }
 
@@ -51,9 +50,8 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     if (dataset == null) {
                         response.status(Http.Status.NOT_FOUND_404).send();
                     } else {
-                        String json = JacksonUtils.toString(dataset);
                         response.headers().contentType(MediaType.APPLICATION_JSON);
-                        response.send(json);
+                        response.send(dataset);
                     }
                 })
                 .exceptionally(t -> {
@@ -63,9 +61,8 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                 });
     }
 
-    void httpPut(ServerRequest request, ServerResponse response, String datasetJson) {
+    void httpPut(ServerRequest request, ServerResponse response, Dataset dataset) {
         String datasetId = request.path().param("datasetId");
-        Dataset dataset = JacksonUtils.toPojo(datasetJson, Dataset.class);
         if (!datasetId.equals(dataset.getId())) {
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
         }

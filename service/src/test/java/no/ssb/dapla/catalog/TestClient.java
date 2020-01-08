@@ -99,7 +99,7 @@ public final class TestClient {
     }
 
     public <T> ResponseHelper<String> put(String uri, T pojo) {
-        return put(uri, HttpRequest.BodyPublishers.ofString(JacksonUtils.toString(pojo), StandardCharsets.UTF_8), HttpResponse.BodyHandlers.ofString());
+        return put(uri, HttpRequest.BodyPublishers.ofString(JsonProtobufUtils.toString(pojo), StandardCharsets.UTF_8), HttpResponse.BodyHandlers.ofString());
     }
 
     public ResponseHelper<String> put(String uri, String body) {
@@ -204,7 +204,7 @@ public final class TestClient {
         @Override
         public CompletionStage<R> getBody() {
             return stringBodySubscriber.getBody()
-                    .thenApply(body -> JacksonUtils.toPojo(body, clazz));
+                    .thenApply(body -> JsonProtobufUtils.toPojo(body, clazz));
         }
     }
 

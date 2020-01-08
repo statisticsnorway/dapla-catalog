@@ -2,15 +2,11 @@ module no.ssb.dapla.catalog {
     requires org.slf4j;
     requires jul.to.slf4j;
     requires org.reactivestreams;
-    requires com.fasterxml.jackson.databind;
-    requires com.fasterxml.jackson.annotation;
-    requires com.fasterxml.jackson.core;
     requires vertx.core;
     requires vertx.pg.client;
     requires vertx.sql.client;
     requires io.helidon.webserver;
     requires io.helidon.config;
-    requires io.helidon.media.jackson.server;
     requires java.net.http;
     requires io.helidon.common.reactive;
     requires logback.classic;
@@ -49,11 +45,6 @@ module no.ssb.dapla.catalog {
     requires perfmark.api; // needed by grpc-client
     requires javax.inject; // required by io.helidon.grpc.server
     requires java.annotation;
-    requires com.fasterxml.jackson.module.paramnames;
-    requires com.fasterxml.jackson.datatype.jdk8;
-    requires com.fasterxml.jackson.datatype.jsr310;
     requires com.google.protobuf.util;
-
-    opens no.ssb.dapla.catalog to com.fasterxml.jackson.databind;
-    opens no.ssb.dapla.catalog.dataset to com.fasterxml.jackson.databind;
+    requires no.ssb.helidon.media.protobuf.json.server;
 }

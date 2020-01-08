@@ -13,13 +13,13 @@ import io.helidon.config.spi.ConfigSource;
 import io.helidon.grpc.server.GrpcRouting;
 import io.helidon.grpc.server.GrpcServer;
 import io.helidon.grpc.server.GrpcServerConfiguration;
-import io.helidon.media.jackson.server.JacksonSupport;
 import io.helidon.metrics.MetricsSupport;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.DatasetService;
+import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -111,7 +111,7 @@ public class Application {
         put(GrpcServer.class, grpcServer);
 
         Routing routing = Routing.builder()
-                .register(JacksonSupport.create())
+                .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register("/dataset", dataSetService)
                 .build();
