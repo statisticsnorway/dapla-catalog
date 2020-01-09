@@ -47,4 +47,5 @@ module no.ssb.dapla.catalog {
     requires java.annotation;
     requires com.google.protobuf.util;
     requires no.ssb.helidon.media.protobuf.json.server;
+    requires com.fasterxml.jackson.databind;  // required by logstash-encoder
 }
