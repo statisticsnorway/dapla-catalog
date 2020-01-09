@@ -3,15 +3,21 @@ syntax = "proto3";
 option java_multiple_files = true;
 option java_package = "no.ssb.dapla.catalog.protobuf";
 
+message DatasetId {
+    string id = 2;
+    repeated string name = 4;
+    int64 timestamp = 6; // the time-based version
+}
+
 message Dataset {
-    string id = 1;
+    DatasetId id = 2;
     enum Valuation {
         SENSITIVE = 0;
         SHIELDED = 1;
         INTERNAL = 2;
         OPEN = 3;
     }
-    Valuation valuation = 2;
+    Valuation valuation = 4;
     enum DatasetState {
         OTHER = 0;
         RAW = 1;
@@ -20,7 +26,7 @@ message Dataset {
         OUTPUT = 4;
         PRODUCT = 5;
     }
-    DatasetState state = 3;
-    repeated string locations = 4;
-    string pseudoConfig = 5;
+    DatasetState state = 6;
+    repeated string locations = 8;
+    string pseudoConfig = 10;
 }

@@ -8,10 +8,13 @@ import no.ssb.dapla.catalog.ResponseHelper;
 import no.ssb.dapla.catalog.TestClient;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
+import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.GetByIdDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.GetByIdDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
+import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +43,8 @@ class DatasetServiceTest {
 
     @BeforeEach
     public void beforeEach() {
-        application.get(BigtableTableAdminClient.class).dropAllRows("dataset");
+        application.get(BigtableTableAdminClient.class).dropAllRows(DatasetRepository.TABLE_ID);
+        application.get(BigtableTableAdminClient.class).dropAllRows(NameIndex.TABLE_ID);
     }
 
     void repositoryCreate(Dataset dataset) {
@@ -59,12 +63,12 @@ class DatasetServiceTest {
         }
     }
 
-    GetDatasetResponse get(String id) {
-        return CatalogServiceGrpc.newBlockingStub(channel).get(GetDatasetRequest.newBuilder().setId(id).build());
+    GetByIdDatasetResponse get(String id) {
+        return CatalogServiceGrpc.newBlockingStub(channel).getById(GetByIdDatasetRequest.newBuilder().setId(id).build());
     }
 
-    GetDatasetResponse get(String id, long timestamp) {
-        return CatalogServiceGrpc.newBlockingStub(channel).get(GetDatasetRequest.newBuilder().setId(id).setTimestamp(timestamp).build());
+    GetByIdDatasetResponse get(String id, long timestamp) {
+        return CatalogServiceGrpc.newBlockingStub(channel).getById(GetByIdDatasetRequest.newBuilder().setId(id).setTimestamp(timestamp).build());
     }
 
     SaveDatasetResponse save(Dataset dataset) {
@@ -75,10 +79,26 @@ class DatasetServiceTest {
         return CatalogServiceGrpc.newBlockingStub(channel).delete(DeleteDatasetRequest.newBuilder().setId(id).build());
     }
 
+    MapNameToIdResponse mapNameToId(String name) {
+        return CatalogServiceGrpc.newBlockingStub(channel).mapNameToId(MapNameToIdRequest.newBuilder().addAllName(NamespaceUtils.toComponents(name)).build());
+    }
+
+    MapNameToIdResponse mapNameToId(String name, String proposedId) {
+        return CatalogServiceGrpc.newBlockingStub(channel).mapNameToId(MapNameToIdRequest.newBuilder().setProposedId(proposedId).addAllName(NamespaceUtils.toComponents(name)).build());
+    }
+
+    @Test
+    void thatMapToIdWorks() {
+        assertThat(mapNameToId("mapToIdWorksTestId1234").getId()).isNullOrEmpty();
+        assertThat(mapNameToId("mapToIdWorksTestId1234", "abc").getId()).isEqualTo("abc");
+        assertThat(mapNameToId("mapToIdWorksTestId1234", "def").getId()).isEqualTo("abc");
+        assertThat(mapNameToId("mapToIdWorksTestId1234").getId()).isEqualTo("abc");
+    }
+
     @Test
     void thatGetDatasetWorks() {
         Dataset dataset = Dataset.newBuilder()
-                .setId("1")
+                .setId(DatasetId.newBuilder().setId("1").build())
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.OUTPUT)
                 .setPseudoConfig("pseudo_conf")
@@ -88,7 +108,7 @@ class DatasetServiceTest {
 
         repositoryCreate(
                 Dataset.newBuilder()
-                        .setId("2")
+                        .setId(DatasetId.newBuilder().setId("2").build())
                         .setValuation(Dataset.Valuation.SENSITIVE)
                         .setState(Dataset.DatasetState.RAW)
                         .setPseudoConfig("pseudo_conf_2")
@@ -108,7 +128,7 @@ class DatasetServiceTest {
     @Test
     void thatGettingAPreviousDatasetWorks() throws InterruptedException {
         Dataset old = Dataset.newBuilder()
-                .setId("a_dataset")
+                .setId(DatasetId.newBuilder().setId("a_dataset").build())
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
                 .setPseudoConfig("config")
@@ -123,7 +143,7 @@ class DatasetServiceTest {
 
         repositoryCreate(
                 Dataset.newBuilder()
-                        .setId("a_dataset")
+                        .setId(DatasetId.newBuilder().setId("a_dataset").build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
                         .addLocations("a_location")
@@ -137,7 +157,7 @@ class DatasetServiceTest {
     void thatGetPreviousReturnsNothingWhenTimestampIsOld() {
         repositoryCreate(
                 Dataset.newBuilder()
-                        .setId("dataset_from_after_timestamp")
+                        .setId(DatasetId.newBuilder().setId("dataset_from_after_timestamp").build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
                         .addLocations("a_location")
@@ -149,7 +169,7 @@ class DatasetServiceTest {
     @Test
     void thatGetPreviousReturnsTheLatestDatasetWhenTimestampIsAfterTheLatest() {
         Dataset dataset = Dataset.newBuilder()
-                .setId("dataset_from_before_timestamp")
+                .setId(DatasetId.newBuilder().setId("dataset_from_before_timestamp").build())
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.PRODUCT)
                 .setPseudoConfig("pC")
@@ -165,7 +185,7 @@ class DatasetServiceTest {
     @Test
     void thatCreateWorks() {
         Dataset ds1 = Dataset.newBuilder()
-                .setId("dataset_to_create")
+                .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
                 .setValuation(Dataset.Valuation.SENSITIVE)
                 .setState(Dataset.DatasetState.OUTPUT)
                 .setPseudoConfig("pseudo_config")
@@ -175,7 +195,7 @@ class DatasetServiceTest {
         assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds1);
 
         Dataset ds2 = Dataset.newBuilder()
-                .setId("dataset_to_create")
+                .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
                 .setPseudoConfig("another_pseudo_config")
@@ -189,13 +209,13 @@ class DatasetServiceTest {
     @Test
     void thatDeleteWorks() {
         Dataset dataset = Dataset.newBuilder()
-                .setId("dataset_to_delete")
+                .setId(DatasetId.newBuilder().setId("dataset_to_delete").build())
                 .setValuation(Dataset.Valuation.OPEN)
                 .setState(Dataset.DatasetState.RAW)
                 .addLocations("f")
                 .build();
         repositoryCreate(dataset);
-        delete(dataset.getId());
+        delete(dataset.getId().getId());
         assertThat(repositoryGet("dataset_to_delete")).isNull();
     }
 
@@ -206,7 +226,7 @@ class DatasetServiceTest {
 
     Dataset createDataset(String datasetId, Dataset.DatasetState datasetState, Dataset.Valuation datasetValuation, String pseudoConfig, String location) {
         Dataset dataset = Dataset.newBuilder()
-                .setId(datasetId)
+                .setId(DatasetId.newBuilder().setId(datasetId).build())
                 .setState(datasetState)
                 .setValuation(datasetValuation)
                 .setPseudoConfig(pseudoConfig)
@@ -240,7 +260,7 @@ class DatasetServiceTest {
     @Test
     void thatPutReturns400WhenIdsDoesntMatch() {
         Dataset ds = Dataset.newBuilder()
-                .setId("an_id")
+                .setId(DatasetId.newBuilder().setId("an_id").build())
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.PRODUCT)
                 .setPseudoConfig("config")

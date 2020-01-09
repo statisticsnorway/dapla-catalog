@@ -6,7 +6,8 @@ import no.ssb.dapla.catalog.IntegrationTestExtension;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.Dataset.DatasetState;
 import no.ssb.dapla.catalog.protobuf.Dataset.Valuation;
-import org.junit.jupiter.api.AfterEach;
+import no.ssb.dapla.catalog.protobuf.DatasetId;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -21,9 +22,10 @@ class DatasetRepositoryTest {
     @Inject
     Application application;
 
-    @AfterEach
-    public void afterEach() {
-        application.get(BigtableTableAdminClient.class).dropAllRows("dataset");
+    @BeforeEach
+    public void beforeEach() {
+        application.get(BigtableTableAdminClient.class).dropAllRows(DatasetRepository.TABLE_ID);
+        application.get(BigtableTableAdminClient.class).dropAllRows(NameIndex.TABLE_ID);
     }
 
     @Test
@@ -31,7 +33,7 @@ class DatasetRepositoryTest {
         DatasetRepository repository = application.get(DatasetRepository.class);
 
         Dataset ds1 = Dataset.newBuilder()
-                .setId("to_be_deleted")
+                .setId(DatasetId.newBuilder().setId("to_be_deleted").build())
                 .setState(DatasetState.PRODUCT)
                 .setValuation(Valuation.INTERNAL)
                 .addLocations("f1")
@@ -40,7 +42,7 @@ class DatasetRepositoryTest {
         repository.create(ds1).join();
 
         Dataset ds2 = Dataset.newBuilder()
-                .setId("to_be_deleted")
+                .setId(DatasetId.newBuilder().setId("to_be_deleted").build())
                 .setState(DatasetState.PRODUCT)
                 .setValuation(Valuation.OPEN)
                 .addLocations("f1")
@@ -50,7 +52,7 @@ class DatasetRepositoryTest {
         repository.create(ds2).join();
 
         Dataset ds3 = Dataset.newBuilder()
-                .setId("should_not_be_deleted")
+                .setId(DatasetId.newBuilder().setId("should_not_be_deleted").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.SENSITIVE)
                 .addLocations("f1")
@@ -67,7 +69,7 @@ class DatasetRepositoryTest {
         DatasetRepository repository = application.get(DatasetRepository.class);
 
         Dataset ds1 = Dataset.newBuilder()
-                .setId("1")
+                .setId(DatasetId.newBuilder().setId("1").build())
                 .setState(DatasetState.RAW)
                 .setValuation(Valuation.SHIELDED)
                 .addLocations("gcs://some-file")
@@ -81,7 +83,7 @@ class DatasetRepositoryTest {
         Thread.sleep(50L);
 
         Dataset ds2 = Dataset.newBuilder()
-                .setId("1")
+                .setId(DatasetId.newBuilder().setId("1").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.INTERNAL)
                 .addLocations("gcs://another-file")
@@ -95,21 +97,21 @@ class DatasetRepositoryTest {
     void thatWriteWorks() {
 
         Dataset ds1 = Dataset.newBuilder()
-                .setId("1")
+                .setId(DatasetId.newBuilder().setId("1").build())
                 .setState(DatasetState.RAW)
                 .setValuation(Valuation.SHIELDED)
                 .addLocations("gcs://some-file")
                 .build();
 
         Dataset ds2 = Dataset.newBuilder()
-                .setId("1")
+                .setId(DatasetId.newBuilder().setId("1").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.INTERNAL)
                 .addLocations("gcs://another-file")
                 .build();
 
         Dataset ds3 = Dataset.newBuilder()
-                .setId("2")
+                .setId(DatasetId.newBuilder().setId("2").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.INTERNAL)
                 .addLocations("gcs://a-file")

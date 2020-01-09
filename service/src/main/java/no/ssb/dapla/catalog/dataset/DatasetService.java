@@ -12,8 +12,12 @@ import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.GetByIdDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.GetByIdDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.GetByNameDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.GetByNameDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
+import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
 import org.slf4j.Logger;
@@ -27,9 +31,11 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     private static final Logger LOG = LoggerFactory.getLogger(DatasetService.class);
 
     final DatasetRepository repository;
+    final NameIndex nameIndex;
 
-    public DatasetService(DatasetRepository repository) {
+    public DatasetService(DatasetRepository repository, NameIndex nameIndex) {
         this.repository = repository;
+        this.nameIndex = nameIndex;
     }
 
     @Override
@@ -63,7 +69,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
 
     void httpPut(ServerRequest request, ServerResponse response, Dataset dataset) {
         String datasetId = request.path().param("datasetId");
-        if (!datasetId.equals(dataset.getId())) {
+        if (!datasetId.equals(dataset.getId().getId())) {
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
             return;
         }
@@ -99,11 +105,35 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     }
 
     @Override
-    public void get(GetDatasetRequest request, StreamObserver<GetDatasetResponse> responseObserver) {
-        repositoryGet(request)
+    public void mapNameToId(MapNameToIdRequest request, StreamObserver<MapNameToIdResponse> responseObserver) {
+        String name = NamespaceUtils.toNamespace(request.getNameList());
+        CompletableFuture<String> future;
+        if (request.getProposedId().isBlank()) {
+            future = nameIndex.mapNameToId(name);
+        } else {
+            future = nameIndex.mapNameToId(name, request.getProposedId());
+        }
+        future
+                .orTimeout(10, TimeUnit.SECONDS)
+                .thenAccept(datasetId -> {
+                    MapNameToIdResponse response = MapNameToIdResponse.newBuilder().setId(datasetId == null ? "" : datasetId).build();
+                    responseObserver.onNext(response);
+                    responseObserver.onCompleted();
+                })
+                .exceptionally(throwable -> {
+                    LOG.error(String.format("While serving grpc mapNameToId for id: %s", name), throwable);
+                    responseObserver.onError(throwable);
+                    return null;
+                })
+        ;
+    }
+
+    @Override
+    public void getById(GetByIdDatasetRequest request, StreamObserver<GetByIdDatasetResponse> responseObserver) {
+        repositoryGet(request.getId(), request.getTimestamp())
                 .orTimeout(5, TimeUnit.SECONDS)
                 .thenAccept(dataset -> {
-                    GetDatasetResponse.Builder builder = GetDatasetResponse.newBuilder();
+                    GetByIdDatasetResponse.Builder builder = GetByIdDatasetResponse.newBuilder();
                     if (dataset != null) {
                         builder.setDataset(dataset);
                     }
@@ -111,17 +141,38 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
-                    LOG.error(String.format("While serving grpc get for dataset-id %s", request.getId()), throwable);
+                    LOG.error(String.format("While serving grpc getById for id: %s", request.getId()), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });
     }
 
-    private CompletableFuture<Dataset> repositoryGet(GetDatasetRequest request) {
-        if (request.getTimestamp() > 0) {
-            return repository.get(request.getId(), request.getTimestamp());
+    @Override
+    public void getByName(GetByNameDatasetRequest request, StreamObserver<GetByNameDatasetResponse> responseObserver) {
+        nameIndex.mapNameToId(NamespaceUtils.toNamespace(request.getNameList())).thenAccept(id -> {
+            repositoryGet(id, request.getTimestamp())
+                    .orTimeout(5, TimeUnit.SECONDS)
+                    .thenAccept(dataset -> {
+                        GetByNameDatasetResponse.Builder builder = GetByNameDatasetResponse.newBuilder();
+                        if (dataset != null) {
+                            builder.setDataset(dataset);
+                        }
+                        responseObserver.onNext(builder.build());
+                        responseObserver.onCompleted();
+                    })
+                    .exceptionally(throwable -> {
+                        LOG.error(String.format("While serving grpc getByName for name: %s", request.getNameList()), throwable);
+                        responseObserver.onError(throwable);
+                        return null;
+                    });
+        });
+    }
+
+    private CompletableFuture<Dataset> repositoryGet(String id, long timestamp) {
+        if (timestamp > 0) {
+            return repository.get(id, timestamp);
         }
-        return repository.get(request.getId());
+        return repository.get(id);
     }
 
     @Override
@@ -133,7 +184,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
-                    LOG.error(String.format("While serving grpc save for dataset-id %s", request.getDataset().getId()), throwable);
+                    LOG.error(String.format("While serving grpc save for dataset-id %s", request.getDataset().getId().getId()), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });

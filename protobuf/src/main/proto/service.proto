@@ -6,17 +6,37 @@ option java_multiple_files = true;
 option java_package = "no.ssb.dapla.catalog.protobuf";
 
 service CatalogService {
-    rpc Get (GetDatasetRequest) returns (GetDatasetResponse);
+    rpc mapNameToId (MapNameToIdRequest) returns (MapNameToIdResponse);
+    rpc GetById (GetByIdDatasetRequest) returns (GetByIdDatasetResponse);
+    rpc GetByName (GetByNameDatasetRequest) returns (GetByNameDatasetResponse);
     rpc Save (SaveDatasetRequest) returns (SaveDatasetResponse);
     rpc Delete (DeleteDatasetRequest) returns (DeleteDatasetResponse);
 }
 
-message GetDatasetRequest {
+message MapNameToIdRequest {
+    repeated string name = 1;
+    string proposedId = 2;
+}
+
+message MapNameToIdResponse {
+    string id = 1;
+}
+
+message GetByIdDatasetRequest {
     string id = 1;
     int64 timestamp = 2;
 }
 
-message GetDatasetResponse {
+message GetByIdDatasetResponse {
+    Dataset dataset = 1;
+}
+
+message GetByNameDatasetRequest {
+    repeated string name = 1;
+    int64 timestamp = 2;
+}
+
+message GetByNameDatasetResponse {
     Dataset dataset = 1;
 }
 

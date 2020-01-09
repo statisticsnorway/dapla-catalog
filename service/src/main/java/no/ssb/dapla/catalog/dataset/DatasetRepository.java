@@ -21,11 +21,11 @@ import java.util.concurrent.CompletableFuture;
 
 public class DatasetRepository {
 
-    private BigtableDataClient dataClient;
+    public static final String TABLE_ID = "dataset";
+    public static final String COLUMN_FAMILY = "document";
+    static final String COLUMN_QUALIFIER = "dataset";
 
-    private static final String TABLE_ID = "dataset";
-    private static final String COLUMN_FAMILY = "document";
-    private static final String COLUMN_QUALIFIER = "dataset";
+    private BigtableDataClient dataClient;
 
     private final Timer readTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("dataset.repository.read");
     private final Timer writeTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("dataset.repository.write");
@@ -106,7 +106,7 @@ public class DatasetRepository {
         // of the end. This because we assume that the most common query will be for the latest dataset.
         Long reverseTimestamp = Long.MAX_VALUE - System.currentTimeMillis();
 
-        RowMutation rowMutation = RowMutation.create(TABLE_ID, String.format("%s#%d", dataset.getId(), reverseTimestamp))
+        RowMutation rowMutation = RowMutation.create(TABLE_ID, String.format("%s#%d", dataset.getId().getId(), reverseTimestamp))
                 .setCell(
                         COLUMN_FAMILY,
                         ByteString.copyFrom(COLUMN_QUALIFIER.getBytes()),

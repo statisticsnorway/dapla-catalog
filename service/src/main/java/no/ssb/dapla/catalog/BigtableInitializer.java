@@ -9,6 +9,8 @@ import com.google.cloud.bigtable.admin.v2.models.CreateTableRequest;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import io.helidon.config.Config;
+import no.ssb.dapla.catalog.dataset.DatasetRepository;
+import no.ssb.dapla.catalog.dataset.NameIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,11 +52,18 @@ public class BigtableInitializer {
         if (!bigtableConfig.get("generate-schema").asBoolean().orElse(false)) {
             return;
         }
-        LOG.info("Initializing Bigtable schema");
-        String tableId = bigtableConfig.get("table-id").asString().orElse("dataset");
+        LOG.info("Schema generation enabled");
+        createTable(adminClient, DatasetRepository.TABLE_ID, DatasetRepository.COLUMN_FAMILY);
+        createTable(adminClient, NameIndex.TABLE_ID, NameIndex.COLUMN_FAMILY);
+    }
+
+    private static void createTable(BigtableTableAdminClient adminClient, String tableId, String family) {
         if (!adminClient.exists(tableId)) {
-            CreateTableRequest createTableRequest = CreateTableRequest.of(tableId).addFamily(bigtableConfig.get("column-family").asString().orElse("document"));
+            LOG.info("Generate table '{}' with family '{}'", tableId, family);
+            CreateTableRequest createTableRequest = CreateTableRequest.of(tableId).addFamily(family);
             adminClient.createTable(createTableRequest);
+        } else {
+            LOG.info("table '{}' already exists", tableId);
         }
     }
 
