@@ -6,7 +6,6 @@ import io.helidon.health.checks.HealthChecks;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.Service;
 import io.helidon.webserver.WebServer;
-import io.vertx.pgclient.PgPool;
 import org.eclipse.microprofile.health.HealthCheckResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
