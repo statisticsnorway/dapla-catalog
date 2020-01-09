@@ -1,0 +1,20 @@
+webserver:
+  port: 8070
+  host: "0.0.0.0"
+
+grpcserver:
+  port: 1408
+
+bigtable:
+  generate-schema: true
+  emulator: true
+  host: localhost
+  port: 9035
+  project-id: my-project
+  instance-id: my-instance
+  credential-provider: default
+  credentials:
+    service-account:
+      path: /conf/dapla-catalog-bigtable-test.json
+    default:
+    compute-engine:

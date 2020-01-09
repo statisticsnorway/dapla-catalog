@@ -29,49 +29,26 @@ steps:
               url: https://nexus.prod-bip-ci.ssb.no/repository/maven-releases/
               layout: default
 
-  - name: build-protobuf
+  - name: build
     image: maven:3-jdk-11
     commands:
-      - mvn install -pl protobuf -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository -DskipTests --batch-mode --global-settings settings.xml
+      - mvn verify -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository --batch-mode --global-settings settings.xml
+    environment:
+      HELIDON_CONFIG_PROFILE: drone
     depends_on:
       - authenticate
       - restore-cache
 
-  - name: build
-    image: maven:3-jdk-11
-    commands:
-      - mvn verify -pl service -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository -DskipTests --batch-mode --global-settings settings.xml
-    depends_on:
-      - build-protobuf
-
-  - name: test
-    image: maven:3-jdk-11
-    commands:
-      - mvn test -pl service -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository --batch-mode --global-settings settings.xml
-    environment:
-      HELIDON_CONFIG_PROFILE: drone
-    depends_on:
-      - build
-
   - name: sonarqube
     image: maven:3-jdk-11
     commands:
-      - cd service
-      - mvn -X -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_PROJECTKEY sonar:sonar -P ssb-bip -Djdk.tls.client.protocols="TLSv1.2" -Dmaven.repo.local=/drone/src/.m2/repository --batch-mode --global-settings /drone/src/settings.xml
-      - rm -rf /drone/src/.m2/repository/no/ssb/dapla/catalog/dapla-catalog-protobuf
+      - mvn -X -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_PROJECTKEY sonar:sonar -P ssb-bip -Djdk.tls.client.protocols="TLSv1.2" -Dmaven.repo.local=/drone/src/.m2/repository --batch-mode --global-settings settings.xml
     environment:
       SONAR_HOST_URL: https://sonarqube.prod-bip-ci.ssb.no
       SONAR_PROJECTKEY:
         from_secret: sonar_token
     depends_on:
-      - test
-
-  - name: publish-maven-protobuf-api
-    image: maven:3-jdk-11
-    commands:
-      - mvn clean deploy -pl protobuf -P ssb-bip -DskipTests=true -Djdk.tls.client.protocols="TLSv1.2" -Dmaven.repo.local=/drone/src/.m2/repository -DskipTests --batch-mode --global-settings settings.xml
-    depends_on:
-      - test
+      - build
 
   - name: publish-docker
     image: plugins/gcr
@@ -87,7 +64,7 @@ steps:
       event:
         - push
     depends_on:
-      - publish-maven-protobuf-api
+      - build
 
   - name: slack
     image: plugins/slack
