@@ -87,7 +87,7 @@ steps:
       event:
         - push
     depends_on:
-      - test
+      - publish-maven-protobuf-api
 
   - name: slack
     image: plugins/slack
