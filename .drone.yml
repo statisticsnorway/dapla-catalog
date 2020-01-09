@@ -40,7 +40,7 @@ steps:
   - name: build
     image: maven:3-jdk-11
     commands:
-      - mvn verify -pl service -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository -DskipTests --batch-mode --global-settings settings.xml
+      - mvn verify -pl service -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository -U -DskipTests --batch-mode --global-settings settings.xml
     depends_on:
       - build-protobuf
 
