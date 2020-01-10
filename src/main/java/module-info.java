@@ -2,9 +2,6 @@ module no.ssb.dapla.catalog {
     requires org.slf4j;
     requires jul.to.slf4j;
     requires org.reactivestreams;
-    requires vertx.core;
-    requires vertx.pg.client;
-    requires vertx.sql.client;
     requires io.helidon.webserver;
     requires io.helidon.config;
     requires java.net.http;
