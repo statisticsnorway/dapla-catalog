@@ -205,7 +205,7 @@ public final class TestClient {
         @Override
         public CompletionStage<R> getBody() {
             return stringBodySubscriber.getBody()
-                    .thenApply(body -> ProtobufJsonUtils.toPojo(body, clazz));
+                    .thenApply(body -> body.isBlank() ? null : ProtobufJsonUtils.toPojo(body, clazz));
         }
     }
 
