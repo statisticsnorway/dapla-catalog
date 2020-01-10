@@ -1,5 +1,5 @@
 # dapla-catalog
-Catalog reactor. The catalog domain maintains headers, metadata, and schema of datasets
+The catalog domain maintains headers, metadata, and schema of datasets
 
 Add the following jvm options when running tests or application with module-system:
 ```
