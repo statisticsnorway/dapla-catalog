@@ -161,14 +161,21 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                         responseObserver.onCompleted();
                     })
                     .exceptionally(throwable -> {
-                        LOG.error(String.format("While serving grpc getByName for name: %s", request.getNameList()), throwable);
+                        LOG.error(String.format("While serving grpc getByName for name: %s, which was mapped to id %s", request.getNameList(), id), throwable);
                         responseObserver.onError(throwable);
                         return null;
                     });
+        }).exceptionally(throwable -> {
+            LOG.error(String.format("While serving grpc getByName for name: %s", request.getNameList()), throwable);
+            responseObserver.onError(throwable);
+            return null;
         });
     }
 
     private CompletableFuture<Dataset> repositoryGet(String id, long timestamp) {
+        if (id == null) {
+            return CompletableFuture.completedFuture(null);
+        }
         if (timestamp > 0) {
             return repository.get(id, timestamp);
         }
