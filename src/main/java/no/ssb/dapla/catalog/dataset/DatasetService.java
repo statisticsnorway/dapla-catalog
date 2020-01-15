@@ -16,6 +16,8 @@ import no.ssb.dapla.catalog.protobuf.GetByIdDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetByIdDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.GetByNameDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetByNameDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.ListByPrefixRequest;
+import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
@@ -199,6 +201,22 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
             return repository.get(id, timestamp);
         }
         return repository.get(id);
+    }
+
+    @Override
+    public void listByPrefix(ListByPrefixRequest request, StreamObserver<ListByPrefixResponse> responseObserver) {
+        nameIndex.listByPrefix(request.getPrefix(), 100)
+                .orTimeout(5, TimeUnit.SECONDS)
+                .thenAccept(entries -> {
+                    ListByPrefixResponse response = ListByPrefixResponse.newBuilder().addAllEntries(entries).build();
+                    responseObserver.onNext(response);
+                    responseObserver.onCompleted();
+                })
+                .exceptionally(throwable -> {
+                    LOG.error(String.format("While serving grpc listByPrefix for prefix: %s", request.getPrefix()), throwable);
+                    responseObserver.onError(throwable);
+                    return null;
+                });
     }
 
     @Override

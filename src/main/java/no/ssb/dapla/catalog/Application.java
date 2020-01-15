@@ -21,6 +21,7 @@ import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.DatasetService;
 import no.ssb.dapla.catalog.dataset.NameIndex;
 import no.ssb.dapla.catalog.dataset.NameService;
+import no.ssb.dapla.catalog.dataset.PrefixService;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,6 +111,9 @@ public class Application {
         NameService nameService = new NameService(nameIndex);
         put(NameService.class, nameService);
 
+        PrefixService prefixService = new PrefixService(nameIndex);
+        put(PrefixService.class, prefixService);
+
         GrpcServer grpcServer = GrpcServer.create(
                 GrpcServerConfiguration.create(config.get("grpcserver")),
                 GrpcRouting.builder()
@@ -123,6 +127,7 @@ public class Application {
                 .register(MetricsSupport.create())
                 .register("/dataset", dataSetService)
                 .register("/name", nameService)
+                .register("/prefix", prefixService)
                 .build();
         put(Routing.class, routing);
 

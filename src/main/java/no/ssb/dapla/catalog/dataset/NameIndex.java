@@ -11,9 +11,12 @@ import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.common.util.concurrent.MoreExecutors;
+import no.ssb.dapla.catalog.protobuf.NameAndIdEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -87,6 +90,48 @@ public class NameIndex {
                         RowCell cell = cells.get(0);
                         LOG.trace("Dataset name: \"{}\" was mapped to an existing id, returning that now.", name);
                         future.complete(cell.getValue().toStringUtf8());
+                    }
+                },
+                MoreExecutors.directExecutor()
+        );
+        return future;
+    }
+
+    public CompletableFuture<List<NameAndIdEntry>> listByPrefix(String prefix, int limit) {
+        CompletableFuture<List<NameAndIdEntry>> future = new CompletableFuture<>();
+        ApiFutures.addCallback(
+                dataClient.readRowsCallable().all()
+                        .futureCall(Query
+                                .create(TABLE_ID)
+                                .prefix(prefix)
+                                .limit(limit)
+                        ),
+                new ApiFutureCallback<>() {
+                    @Override
+                    public void onFailure(Throwable t) {
+                        future.completeExceptionally(t);
+                    }
+
+                    @Override
+                    public void onSuccess(List<Row> rows) {
+                        if (rows == null || rows.isEmpty()) {
+                            LOG.trace("Prefix: \"{}\" was not mapped to anything, returning empty list.", prefix);
+                            future.complete(Collections.emptyList());
+                            return;
+                        }
+                        List<NameAndIdEntry> result = new ArrayList<>(rows.size());
+                        for (Row row : rows) {
+                            String name = row.getKey().toStringUtf8();
+                            List<RowCell> cells = row.getCells(COLUMN_FAMILY, COLUMN_QUALIFIER);
+                            RowCell cell = cells.get(0);
+                            NameAndIdEntry entry = NameAndIdEntry.newBuilder()
+                                    .addAllName(NamespaceUtils.toComponents(name))
+                                    .setId(cell.getValue().toStringUtf8())
+                                    .build();
+                            result.add(entry);
+                        }
+                        LOG.trace("Prefix: \"{}\" was mapped to {} existing entries.", prefix, rows.size());
+                        future.complete(result);
                     }
                 },
                 MoreExecutors.directExecutor()
