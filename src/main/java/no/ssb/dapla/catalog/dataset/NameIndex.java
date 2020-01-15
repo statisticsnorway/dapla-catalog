@@ -97,7 +97,8 @@ public class NameIndex {
         return future;
     }
 
-    public CompletableFuture<List<NameAndIdEntry>> listByPrefix(String prefix, int limit) {
+    public CompletableFuture<List<NameAndIdEntry>> listByPrefix(String _prefix, int limit) {
+        String prefix = _prefix.startsWith("/") ? _prefix : "/" + _prefix;
         CompletableFuture<List<NameAndIdEntry>> future = new CompletableFuture<>();
         ApiFutures.addCallback(
                 dataClient.readRowsCallable().all()

@@ -32,13 +32,13 @@ class PrefixServiceTest {
     @Test
     void thatGetByPrefixWorks() {
         NameIndex index = application.get(NameIndex.class);
-        index.mapNameToId("/another/prefix", "another");
-        index.mapNameToId("/unit-test/and/other/data", "other");
-        index.mapNameToId("/unit-test/with/data/1", "1");
-        index.mapNameToId("/unit-test/with/data/2", "2");
-        index.mapNameToId("/unit-test/with/data/3", "3");
-        index.mapNameToId("/unitisgood/forall", "me");
-        index.mapNameToId("/x-after/and/more/data", "more");
+        index.mapNameToId("/another/prefix", "another").join();
+        index.mapNameToId("/unit-test/and/other/data", "other").join();
+        index.mapNameToId("/unit-test/with/data/1", "1").join();
+        index.mapNameToId("/unit-test/with/data/2", "2").join();
+        index.mapNameToId("/unit-test/with/data/3", "3").join();
+        index.mapNameToId("/unitisgood/forall", "me").join();
+        index.mapNameToId("/x-after/and/more/data", "more").join();
 
         ListByPrefixResponse response = testClient.get("/prefix/unit", ListByPrefixResponse.class).expect200Ok().body();
 

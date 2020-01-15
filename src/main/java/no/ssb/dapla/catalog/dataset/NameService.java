@@ -29,7 +29,7 @@ public class NameService implements Service {
     }
 
     public void httpGetMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse) {
-        String name = httpRequest.path().param("name");
+        String name = NamespaceUtils.toNamespace(NamespaceUtils.toComponents(httpRequest.path().param("name")));
         nameIndex.mapNameToId(name)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(datasetId -> {
@@ -49,7 +49,7 @@ public class NameService implements Service {
     }
 
     public void httpPostMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse) {
-        String name = httpRequest.path().param("name");
+        String name = NamespaceUtils.toNamespace(NamespaceUtils.toComponents(httpRequest.path().param("name")));
         String proposedId = httpRequest.path().param("proposedId");
         nameIndex.mapNameToId(name, proposedId)
                 .orTimeout(10, TimeUnit.SECONDS)
@@ -70,7 +70,7 @@ public class NameService implements Service {
     }
 
     private void httpDeleteMapNameToId(ServerRequest serverRequest, ServerResponse serverResponse) {
-        String name = serverRequest.path().param("name");
+        String name = NamespaceUtils.toNamespace(NamespaceUtils.toComponents(serverRequest.path().param("name")));
         nameIndex.deleteMappingFor(name)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(v -> {
