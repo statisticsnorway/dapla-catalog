@@ -17,6 +17,8 @@ import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
+import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -87,12 +89,18 @@ class DatasetServiceTest {
         return CatalogServiceGrpc.newBlockingStub(channel).mapNameToId(MapNameToIdRequest.newBuilder().setProposedId(proposedId).addAllName(NamespaceUtils.toComponents(name)).build());
     }
 
+    UnmapNameResponse unmapName(String name) {
+        return CatalogServiceGrpc.newBlockingStub(channel).unmapName(UnmapNameRequest.newBuilder().addAllName(NamespaceUtils.toComponents(name)).build());
+    }
+
     @Test
-    void thatMapToIdWorks() {
+    void thatMapToIdAndUnmapWorks() {
         assertThat(mapNameToId("mapToIdWorksTestId1234").getId()).isNullOrEmpty();
         assertThat(mapNameToId("mapToIdWorksTestId1234", "abc").getId()).isEqualTo("abc");
         assertThat(mapNameToId("mapToIdWorksTestId1234", "def").getId()).isEqualTo("abc");
         assertThat(mapNameToId("mapToIdWorksTestId1234").getId()).isEqualTo("abc");
+        unmapName("mapToIdWorksTestId1234");
+        assertThat(mapNameToId("mapToIdWorksTestId1234").getId()).isEqualTo("");
     }
 
     @Test

@@ -20,6 +20,8 @@ import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
+import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,11 +123,28 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
-                    LOG.error(String.format("While serving grpc mapNameToId for id: %s", name), throwable);
+                    LOG.error(String.format("While serving grpc mapNameToId for name: %s", name), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 })
         ;
+    }
+
+    @Override
+    public void unmapName(UnmapNameRequest request, StreamObserver<UnmapNameResponse> responseObserver) {
+        String name = NamespaceUtils.toNamespace(request.getNameList());
+        nameIndex.deleteMappingFor(name)
+                .orTimeout(10, TimeUnit.SECONDS)
+                .thenAccept(datasetId -> {
+                    UnmapNameResponse response = UnmapNameResponse.newBuilder().build();
+                    responseObserver.onNext(response);
+                    responseObserver.onCompleted();
+                })
+                .exceptionally(throwable -> {
+                    LOG.error(String.format("While serving grpc unmapName for name: %s", name), throwable);
+                    responseObserver.onError(throwable);
+                    return null;
+                });
     }
 
     @Override

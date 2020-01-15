@@ -9,6 +9,7 @@ import com.google.cloud.bigtable.data.v2.models.Mutation;
 import com.google.cloud.bigtable.data.v2.models.Query;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
+import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +87,26 @@ public class NameIndex {
                         RowCell cell = cells.get(0);
                         LOG.trace("Dataset name: \"{}\" was mapped to an existing id, returning that now.", name);
                         future.complete(cell.getValue().toStringUtf8());
+                    }
+                },
+                MoreExecutors.directExecutor()
+        );
+        return future;
+    }
+
+    public CompletableFuture<Void> deleteMappingFor(String name) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        ApiFutures.addCallback(dataClient.mutateRowCallable().futureCall(RowMutation.create(TABLE_ID, name, Mutation.create().deleteRow())),
+                new ApiFutureCallback<>() {
+                    @Override
+                    public void onFailure(Throwable t) {
+                        future.completeExceptionally(t);
+                    }
+
+                    @Override
+                    public void onSuccess(Void result) {
+                        future.complete(null);
+                        LOG.trace("Dataset name: \"{}\" was mapped to an existing id, returning that now.", name);
                     }
                 },
                 MoreExecutors.directExecutor()

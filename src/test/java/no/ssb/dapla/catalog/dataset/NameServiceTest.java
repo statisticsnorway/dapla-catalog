@@ -27,10 +27,12 @@ class NameServiceTest {
     }
 
     @Test
-    void thatGetThenPostThenGetAgainWorksAsExpected() {
+    void thatGetThenPostThenGetThenDeleteThenGetWorksAsExpected() {
         testClient.get("/name/MyName1").expect404NotFound();
         assertThat(testClient.post("/name/MyName1/MyId1").expect200Ok().body()).contains("MyId1");
         assertThat(testClient.post("/name/MyName1/otherId2").expect200Ok().body()).contains("MyId1").doesNotContain("otherId2");
         assertThat(testClient.get("/name/MyName1").expect200Ok().body()).contains("MyId1");
+        assertThat(testClient.delete("/name/MyName1").expect200Ok().body()).isEmpty();
+        testClient.get("/name/MyName1").expect404NotFound();
     }
 }

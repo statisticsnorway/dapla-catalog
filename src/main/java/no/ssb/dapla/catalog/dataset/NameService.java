@@ -25,6 +25,7 @@ public class NameService implements Service {
     public void update(Routing.Rules rules) {
         rules.get("/{name}", this::httpGetMapNameToId);
         rules.post("/{name}/{proposedId}", this::httpPostMapNameToId);
+        rules.delete("/{name}", this::httpDeleteMapNameToId);
     }
 
     public void httpGetMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse) {
@@ -63,6 +64,21 @@ public class NameService implements Service {
                 .exceptionally(throwable -> {
                     LOG.error(String.format("While serving httpPostMapNameToId for name: %s", name), throwable);
                     httpResponse.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(throwable.getMessage());
+                    return null;
+                })
+        ;
+    }
+
+    private void httpDeleteMapNameToId(ServerRequest serverRequest, ServerResponse serverResponse) {
+        String name = serverRequest.path().param("name");
+        nameIndex.deleteMappingFor(name)
+                .orTimeout(10, TimeUnit.SECONDS)
+                .thenAccept(v -> {
+                    serverResponse.send();
+                })
+                .exceptionally(throwable -> {
+                    LOG.error(String.format("While serving httpPostMapNameToId for name: %s", name), throwable);
+                    serverResponse.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(throwable.getMessage());
                     return null;
                 })
         ;
