@@ -2,32 +2,22 @@ package no.ssb.dapla.catalog.dataset;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import io.grpc.Channel;
+import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
+import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
+import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.Application;
-import no.ssb.dapla.catalog.IntegrationTestExtension;
-import no.ssb.dapla.catalog.ResponseHelper;
-import no.ssb.dapla.catalog.TestClient;
-import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
-import no.ssb.dapla.catalog.protobuf.Dataset;
-import no.ssb.dapla.catalog.protobuf.DatasetId;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.GetByIdDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.GetByIdDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixRequest;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
-import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
-import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
-import no.ssb.dapla.catalog.protobuf.NameAndIdEntry;
-import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
-import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
+import no.ssb.dapla.catalog.protobuf.*;
+import no.ssb.testing.helidon.*;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -35,8 +25,11 @@ import java.util.concurrent.TimeoutException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@GrpcMockRegistryConfig(DatasetServiceTest.DatasetAccessTestGrpcMockRegistry.class)
 @ExtendWith(IntegrationTestExtension.class)
 class DatasetServiceTest {
+
+    private static final Set<String> ACCESS = Set.of("a-user");
 
     @Inject
     Application application;
@@ -51,6 +44,26 @@ class DatasetServiceTest {
     public void beforeEach() {
         application.get(BigtableTableAdminClient.class).dropAllRows(DatasetRepository.TABLE_ID);
         application.get(BigtableTableAdminClient.class).dropAllRows(NameIndex.TABLE_ID);
+    }
+
+    public static class DatasetAccessTestGrpcMockRegistry extends GrpcMockRegistry {
+        public DatasetAccessTestGrpcMockRegistry() {
+            add(new AuthServiceGrpc.AuthServiceImplBase() {
+                @Override
+                public void hasAccess(AccessCheckRequest request, StreamObserver<AccessCheckResponse> responseObserver) {
+                    AccessCheckResponse.Builder responseBuilder = AccessCheckResponse.newBuilder();
+
+                    if (ACCESS.contains(request.getUserId())) {
+                        responseBuilder.setAllowed(true);
+                    }else{
+                        responseBuilder.setAllowed(false);
+                    }
+
+                    responseObserver.onNext(responseBuilder.build());
+                    responseObserver.onCompleted();
+                }
+            });
+        }
     }
 
     void repositoryCreate(Dataset dataset) {
@@ -77,8 +90,8 @@ class DatasetServiceTest {
         return CatalogServiceGrpc.newBlockingStub(channel).getById(GetByIdDatasetRequest.newBuilder().setId(id).setTimestamp(timestamp).build());
     }
 
-    SaveDatasetResponse save(Dataset dataset) {
-        return CatalogServiceGrpc.newBlockingStub(channel).save(SaveDatasetRequest.newBuilder().setDataset(dataset).build());
+    SaveDatasetResponse save(Dataset dataset, String userId) {
+        return CatalogServiceGrpc.newBlockingStub(channel).save(SaveDatasetRequest.newBuilder().setDataset(dataset).setUserId(userId).build());
     }
 
     DeleteDatasetResponse delete(String id) {
@@ -226,30 +239,6 @@ class DatasetServiceTest {
     }
 
     @Test
-    void thatCreateWorks() {
-        Dataset ds1 = Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
-                .setValuation(Dataset.Valuation.SENSITIVE)
-                .setState(Dataset.DatasetState.OUTPUT)
-                .setPseudoConfig("pseudo_config")
-                .addLocations("file_location")
-                .build();
-        save(ds1);
-        assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds1);
-
-        Dataset ds2 = Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
-                .setValuation(Dataset.Valuation.INTERNAL)
-                .setState(Dataset.DatasetState.PROCESSED)
-                .setPseudoConfig("another_pseudo_config")
-                .addLocations("file_location")
-                .addLocations("file_location_2")
-                .build();
-        save(ds2);
-        assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds2);
-    }
-
-    @Test
     void thatDeleteWorks() {
         Dataset dataset = Dataset.newBuilder()
                 .setId(DatasetId.newBuilder().setId("dataset_to_delete").build())
@@ -292,12 +281,18 @@ class DatasetServiceTest {
     }
 
     @Test
-    void thatPutWorks() {
+    void thatPutWorksWhenUserHasWriteAccess() {
         Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "pC2", "f2");
-        ResponseHelper<String> helper = testClient.put("/dataset/2", expectedDataset).expect201Created();
+        ResponseHelper<String> helper = testClient.put("/dataset/2?userId=a-user", expectedDataset).expect201Created();
         assertEquals("/dataset/2", helper.response().headers().firstValue("Location").orElseThrow());
         Dataset dataset = repositoryGet("2");
         assertEquals(expectedDataset, dataset);
+    }
+
+    @Test
+    void thatPutFailsWhenUserHasNoWriteAccess() {
+        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "pC2", "f2");
+        testClient.put("/dataset/2?userId=b-user", expectedDataset).expect403Forbidden();
     }
 
     @Test
@@ -310,5 +305,46 @@ class DatasetServiceTest {
                 .addLocations("f")
                 .build();
         testClient.put("/dataset/a_different_id", ds).expect400BadRequest();
+    }
+
+    @Test
+    void thatCreateWorksIfUserHasWriteAccess() {
+        Dataset ds1 = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
+                .setValuation(Dataset.Valuation.SENSITIVE)
+                .setState(Dataset.DatasetState.OUTPUT)
+                .setPseudoConfig("pseudo_config")
+                .addLocations("file_location")
+                .build();
+        save(ds1, "a-user");
+
+        assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds1);
+
+        Dataset ds2 = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
+                .setValuation(Dataset.Valuation.INTERNAL)
+                .setState(Dataset.DatasetState.PROCESSED)
+                .setPseudoConfig("another_pseudo_config")
+                .addLocations("file_location")
+                .addLocations("file_location_2")
+                .build();
+        save(ds2, "a-user");
+
+        assertThat(repositoryGet("dataset_to_create")).isEqualTo(ds2);
+    }
+
+    @Test
+    void thatCreateFailsIfUserHasNoWriteAccess() {
+        Dataset ds1 = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
+                .setValuation(Dataset.Valuation.SENSITIVE)
+                .setState(Dataset.DatasetState.OUTPUT)
+                .setPseudoConfig("pseudo_config")
+                .addLocations("file_location")
+                .build();
+
+        Assertions.assertThrows(StatusRuntimeException.class, () -> {
+            save(ds1, "b-user");
+        });
     }
 }

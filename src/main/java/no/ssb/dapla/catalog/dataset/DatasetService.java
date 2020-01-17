@@ -1,5 +1,11 @@
 package no.ssb.dapla.catalog.dataset;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import io.grpc.Status;
+import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
 import io.helidon.common.http.Http;
 import io.helidon.common.http.MediaType;
@@ -8,6 +14,10 @@ import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
+import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
+import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
+import no.ssb.dapla.auth.dataset.protobuf.Role;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
@@ -24,9 +34,11 @@ import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
 import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -37,9 +49,12 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     final DatasetRepository repository;
     final NameIndex nameIndex;
 
-    public DatasetService(DatasetRepository repository, NameIndex nameIndex) {
+    final AuthServiceGrpc.AuthServiceFutureStub authService;
+
+    public DatasetService(DatasetRepository repository, NameIndex nameIndex, AuthServiceGrpc.AuthServiceFutureStub authService) {
         this.repository = repository;
         this.nameIndex = nameIndex;
+        this.authService = authService;
     }
 
     @Override
@@ -73,24 +88,59 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
 
     void httpPut(ServerRequest request, ServerResponse response, Dataset dataset) {
         String datasetId = request.path().param("datasetId");
+        Optional<String> userId = request.queryParams().first("userId");
+
         if (!datasetId.equals(dataset.getId().getId())) {
             response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
             return;
         }
-        CompletableFuture<Void> future = repository.create(dataset);
-        if (!request.queryParams().first("notimeout").isPresent()) {
-            future.orTimeout(5, TimeUnit.SECONDS);
+
+        if (userId.isEmpty()) {
+            response.status(Http.Status.BAD_REQUEST_400).send("Expected 'userId'");
+            return;
         }
-        future
-                .thenRun(() -> {
-                    response.headers().add("Location", "/dataset/" + datasetId);
-                    response.status(Http.Status.CREATED_201).send();
-                })
-                .exceptionally(t -> {
-                    LOG.error(String.format("While serving %s uri: %s", request.method().name(), request.uri()), t);
-                    response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
-                    return null;
-                });
+
+        AccessCheckRequest checkRequest = AccessCheckRequest.newBuilder()
+                .setUserId(userId.get())
+                .setPrivilege(Role.Privilege.CREATE.name())
+                .setValuation(dataset.getValuation().name())
+                .setState(dataset.getState().name())
+                .build();
+
+        ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.hasAccess(checkRequest);
+
+
+        Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
+
+            @Override
+            public void onSuccess(@Nullable AccessCheckResponse result) {
+                if (result != null && result.getAllowed()) {
+                    CompletableFuture<Void> future = repository.create(dataset);
+                    if (!request.queryParams().first("notimeout").isPresent()) {
+                        future.orTimeout(5, TimeUnit.SECONDS);
+                    }
+                    future
+                            .thenRun(() -> {
+                                response.headers().add("Location", "/dataset/" + datasetId);
+                                response.status(Http.Status.CREATED_201).send();
+                            })
+                            .exceptionally(t -> {
+                                LOG.error(String.format("While serving %s uri: %s", request.method().name(), request.uri()), t);
+                                response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
+                                return null;
+                            });
+
+                    return;
+                }
+                response.status(Http.Status.FORBIDDEN_403).send();
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LOG.error("Failed to get dataset meta", t);
+                response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
+            }
+        }, MoreExecutors.directExecutor());
     }
 
     void httpDelete(ServerRequest request, ServerResponse response) {
@@ -221,17 +271,45 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
 
     @Override
     public void save(SaveDatasetRequest request, StreamObserver<SaveDatasetResponse> responseObserver) {
-        repository.create(request.getDataset())
-                .orTimeout(5, TimeUnit.SECONDS)
-                .thenAccept(aVoid -> {
-                    responseObserver.onNext(SaveDatasetResponse.getDefaultInstance());
-                    responseObserver.onCompleted();
-                })
-                .exceptionally(throwable -> {
-                    LOG.error(String.format("While serving grpc save for dataset-id %s", request.getDataset().getId().getId()), throwable);
-                    responseObserver.onError(throwable);
-                    return null;
-                });
+        String userId = request.getUserId();
+        Dataset dataset = request.getDataset();
+
+        AccessCheckRequest checkRequest = AccessCheckRequest.newBuilder()
+                .setUserId(userId)
+                .setPrivilege("WRITE")
+                .setValuation(dataset.getValuation().name())
+                .setState(dataset.getState().name())
+                .build();
+
+        ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.hasAccess(checkRequest);
+
+        Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
+            @Override
+            public void onSuccess(@Nullable AccessCheckResponse result) {
+                if (result != null && result.getAllowed()) {
+                    repository.create(request.getDataset())
+                            .orTimeout(5, TimeUnit.SECONDS)
+                            .thenAccept(aVoid -> {
+                                responseObserver.onNext(SaveDatasetResponse.getDefaultInstance());
+                                responseObserver.onCompleted();
+                            })
+                            .exceptionally(throwable -> {
+                                LOG.error(String.format("While serving grpc save for dataset-id %s", request.getDataset().getId().getId()), throwable);
+                                responseObserver.onError(throwable);
+                                return null;
+                            });
+                }else{
+                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
+                }
+                return;
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LOG.error("Failed to do access check", t);
+                responseObserver.onError(t);
+            }
+        }, MoreExecutors.directExecutor());
     }
 
     @Override

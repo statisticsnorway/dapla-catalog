@@ -17,11 +17,13 @@ import io.helidon.metrics.MetricsSupport;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.DatasetService;
 import no.ssb.dapla.catalog.dataset.NameIndex;
 import no.ssb.dapla.catalog.dataset.NameService;
 import no.ssb.dapla.catalog.dataset.PrefixService;
+import no.ssb.helidon.application.HelidonApplication;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +42,7 @@ import java.util.logging.LogManager;
 import static io.helidon.config.ConfigSources.classpath;
 import static io.helidon.config.ConfigSources.file;
 
-public class Application {
+public class Application implements HelidonApplication{
 
     private static final Logger LOG;
 
@@ -75,7 +77,8 @@ public class Application {
         configSourceSupplierList.add(file("conf/application.yaml").optional());
         configSourceSupplierList.add(classpath("application.yaml"));
 
-        Application application = new Application(Config.builder().sources(configSourceSupplierList).build());
+        HelidonApplication application = new ApplicationBuilder().build();
+
         application.start().toCompletableFuture().orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(app -> LOG.info("Webserver running at port: {}, Grpcserver running at port: {}, started in {} ms",
                         app.get(WebServer.class).port(), app.get(GrpcServer.class).port(), System.currentTimeMillis() - startTime))
@@ -86,10 +89,8 @@ public class Application {
                 });
     }
 
-    public Application(Config config) {
+    Application(Config config, AuthServiceGrpc.AuthServiceFutureStub authService) {
         put(Config.class, config);
-
-        applyGrpcProvidersWorkaround();
 
         BigtableTableAdminClient bigtableTableAdminClient = BigtableInitializer.createBigtableAdminClient(config.get("bigtable"));
         put(BigtableTableAdminClient.class, bigtableTableAdminClient);
@@ -105,7 +106,10 @@ public class Application {
         NameIndex nameIndex = new NameIndex(dataClient);
         put(NameIndex.class, nameIndex);
 
-        DatasetService dataSetService = new DatasetService(repository, nameIndex);
+        // dataset access grpc service
+        put(AuthServiceGrpc.AuthServiceFutureStub.class, authService);
+
+        DatasetService dataSetService = new DatasetService(repository, nameIndex, authService);
         put(DatasetService.class, dataSetService);
 
         NameService nameService = new NameService(nameIndex);
@@ -136,28 +140,15 @@ public class Application {
         put(WebServer.class, webServer);
     }
 
-    private void applyGrpcProvidersWorkaround() {
-        // The shaded version of grpc from helidon does not include the service definition for
-        // PickFirstLoadBalancerProvider. This result in LoadBalancerRegistry not being able to
-        // find it. We register them manually here.
-        LoadBalancerRegistry.getDefaultRegistry().register(new PickFirstLoadBalancerProvider());
-        LoadBalancerRegistry.getDefaultRegistry().register(new HealthCheckingRoundRobinLoadBalancerProvider());
-
-        // The same thing happens with the name resolvers.
-        NameResolverRegistry.getDefaultRegistry().register(new DnsNameResolverProvider());
-    }
-
     public CompletionStage<Application> start() {
         return get(WebServer.class).start()
                 .thenCombine(get(GrpcServer.class).start(), (webServer, grpcServer) -> this);
     }
 
-    public Application stop() {
-        get(WebServer.class).shutdown()
+    public CompletionStage<Application> stop() {
+        return get(WebServer.class).shutdown()
                 .thenCombine(get(GrpcServer.class).shutdown(), ((webServer, grpcServer) -> this))
                 .thenCombine(CompletableFuture.runAsync(() -> get(BigtableDataClient.class).close()), (app, v) -> this)
-                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close()), (app, v) -> this)
-                .toCompletableFuture().orTimeout(2, TimeUnit.SECONDS).join();
-        return this;
+                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close()), (app, v) -> this);
     }
 }

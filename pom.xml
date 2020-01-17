@@ -40,6 +40,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>no.ssb.helidon</groupId>
+            <artifactId>helidon-application</artifactId>
+            <version>0.1</version>
+        </dependency>
+        <dependency>
             <groupId>no.ssb.dapla.catalog</groupId>
             <artifactId>dapla-catalog-protobuf</artifactId>
             <version>0.2-SNAPSHOT</version>
@@ -81,6 +86,18 @@
             <groupId>io.helidon.metrics</groupId>
             <artifactId>helidon-metrics2</artifactId>
         </dependency>
+        <dependency>
+            <groupId>no.ssb.helidon</groupId>
+            <artifactId>helidon-testing</artifactId>
+            <version>0.2-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>no.ssb.dapla.auth.dataset</groupId>
+            <artifactId>dapla-auth-dataset-protobuf</artifactId>
+            <version>0.1</version>
+        </dependency>
+
         <dependency>
             <groupId>io.helidon.microprofile.config</groupId>
             <artifactId>helidon-microprofile-config</artifactId>
@@ -232,6 +249,12 @@
             <artifactId>junit-jupiter-api</artifactId>
             <version>5.5.2</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>16.0.3</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 

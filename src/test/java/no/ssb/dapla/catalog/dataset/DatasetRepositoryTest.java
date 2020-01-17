@@ -2,11 +2,11 @@ package no.ssb.dapla.catalog.dataset;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import no.ssb.dapla.catalog.Application;
-import no.ssb.dapla.catalog.IntegrationTestExtension;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.Dataset.DatasetState;
 import no.ssb.dapla.catalog.protobuf.Dataset.Valuation;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
+import no.ssb.testing.helidon.IntegrationTestExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
