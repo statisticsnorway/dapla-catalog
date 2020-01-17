@@ -276,7 +276,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
 
         AccessCheckRequest checkRequest = AccessCheckRequest.newBuilder()
                 .setUserId(userId)
-                .setPrivilege("WRITE")
+                .setPrivilege(Role.Privilege.CREATE.name())
                 .setValuation(dataset.getValuation().name())
                 .setState(dataset.getState().name())
                 .build();

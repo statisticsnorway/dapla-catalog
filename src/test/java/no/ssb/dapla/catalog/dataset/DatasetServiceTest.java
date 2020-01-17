@@ -281,7 +281,7 @@ class DatasetServiceTest {
     }
 
     @Test
-    void thatPutWorksWhenUserHasWriteAccess() {
+    void thatPutWorksWhenUserHasCreateAccess() {
         Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "pC2", "f2");
         ResponseHelper<String> helper = testClient.put("/dataset/2?userId=a-user", expectedDataset).expect201Created();
         assertEquals("/dataset/2", helper.response().headers().firstValue("Location").orElseThrow());
@@ -290,7 +290,7 @@ class DatasetServiceTest {
     }
 
     @Test
-    void thatPutFailsWhenUserHasNoWriteAccess() {
+    void thatPutFailsWhenUserHasNoCreateAccess() {
         Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "pC2", "f2");
         testClient.put("/dataset/2?userId=b-user", expectedDataset).expect403Forbidden();
     }
@@ -308,7 +308,7 @@ class DatasetServiceTest {
     }
 
     @Test
-    void thatCreateWorksIfUserHasWriteAccess() {
+    void thatCreateWorksIfUserHasCreateAccess() {
         Dataset ds1 = Dataset.newBuilder()
                 .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
                 .setValuation(Dataset.Valuation.SENSITIVE)
@@ -334,7 +334,7 @@ class DatasetServiceTest {
     }
 
     @Test
-    void thatCreateFailsIfUserHasNoWriteAccess() {
+    void thatCreateFailsIfUserHasNoCreateAccess() {
         Dataset ds1 = Dataset.newBuilder()
                 .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
                 .setValuation(Dataset.Valuation.SENSITIVE)
