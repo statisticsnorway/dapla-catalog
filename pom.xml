@@ -317,6 +317,8 @@
                     <configuration>
                         <release>${jdk.version}</release>
                         <testRelease>${jdk.version}</testRelease>
+                        <target>${jdk.version}</target>
+                        <source>${jdk.version}</source>
                     </configuration>
                 </plugin>
             </plugins>
