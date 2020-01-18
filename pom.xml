@@ -7,7 +7,7 @@
         <groupId>no.ssb.dapla</groupId>
         <artifactId>helidon-parent</artifactId>
         <version>0.1-SNAPSHOT</version>
-        <relativePath>../dapla-helidon-parent</relativePath>
+        <relativePath/>
     </parent>
 
     <groupId>no.ssb.dapla</groupId>
