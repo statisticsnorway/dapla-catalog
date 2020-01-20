@@ -21,6 +21,7 @@ module no.ssb.dapla.catalog {
 
     requires com.google.common;
     requires no.ssb.dapla.catalog.protobuf;
+    requires no.ssb.dapla.auth.dataset.protobuf;
 
     requires gax.grpc.and.proto.google.common.protos;
 
@@ -28,6 +29,7 @@ module no.ssb.dapla.catalog {
     requires io.helidon.grpc.server;
     requires java.logging;
 
+    requires no.ssb.helidon.application;
     requires com.google.gson; // required by JsonFormat in protobuf-java-util for serialization and deserialization
 
     /*
@@ -45,4 +47,8 @@ module no.ssb.dapla.catalog {
     requires com.google.protobuf.util;
     requires no.ssb.helidon.media.protobuf.json.server;
     requires com.fasterxml.jackson.databind;  // required by logstash-encoder
+
+    requires org.checkerframework.checker.qual;
+
+    provides no.ssb.helidon.application.HelidonApplicationBuilder with no.ssb.dapla.catalog.ApplicationBuilder;
 }
