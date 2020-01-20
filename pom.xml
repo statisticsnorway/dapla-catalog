@@ -5,7 +5,7 @@
 
     <parent>
         <groupId>no.ssb.dapla</groupId>
-        <artifactId>helidon-parent</artifactId>
+        <artifactId>application</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath/>
     </parent>
@@ -15,14 +15,13 @@
     <version>0.1-SNAPSHOT</version>
 
     <properties>
-        <exec.mainClass>no.ssb.datasetaccess.Application</exec.mainClass>
+        <exec.mainClass>no.ssb.dapla.catalog.Application</exec.mainClass>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>no.ssb.dapla.catalog</groupId>
             <artifactId>dapla-catalog-protobuf</artifactId>
-            <version>0.2-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.dapla.auth.dataset</groupId>
