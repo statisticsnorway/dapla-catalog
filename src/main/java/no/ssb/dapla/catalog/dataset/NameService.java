@@ -1,14 +1,19 @@
 package no.ssb.dapla.catalog.dataset;
 
 import io.helidon.common.http.Http;
+import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
+import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class NameService implements Service {
@@ -23,13 +28,22 @@ public class NameService implements Service {
 
     @Override
     public void update(Routing.Rules rules) {
-        rules.get("/{name}", this::httpGetMapNameToId);
-        rules.post("/{name}/{proposedId}", this::httpPostMapNameToId);
-        rules.delete("/{name}", this::httpDeleteMapNameToId);
+        rules.get(this::httpGetMapNameToId);
+        rules.post(Handler.create(MapNameToIdRequest.class, this::httpPostMapNameToId));
+        rules.delete(this::httpDeleteMapNameToId);
+    }
+
+    private String getNamePathParamWhenNotMappedAsRoutingPattern(ServerRequest httpRequest) {
+        String namePathParam = URLDecoder.decode(httpRequest.path().toRawString(), StandardCharsets.UTF_8);
+        while (namePathParam.startsWith("/")) {
+            namePathParam = namePathParam.substring(1);
+        }
+        namePathParam = "/" + namePathParam;
+        return NamespaceUtils.toNamespace(NamespaceUtils.toComponents(namePathParam));
     }
 
     public void httpGetMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse) {
-        String name = NamespaceUtils.toNamespace(NamespaceUtils.toComponents(httpRequest.path().param("name")));
+        String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
         nameIndex.mapNameToId(name)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(datasetId -> {
@@ -48,9 +62,9 @@ public class NameService implements Service {
         ;
     }
 
-    public void httpPostMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse) {
-        String name = NamespaceUtils.toNamespace(NamespaceUtils.toComponents(httpRequest.path().param("name")));
-        String proposedId = httpRequest.path().param("proposedId");
+    public void httpPostMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse, MapNameToIdRequest mapNameToIdRequest) {
+        String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
+        String proposedId = mapNameToIdRequest.getProposedId().isBlank() ? UUID.randomUUID().toString() : mapNameToIdRequest.getProposedId();
         nameIndex.mapNameToId(name, proposedId)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(datasetId -> {
@@ -70,7 +84,7 @@ public class NameService implements Service {
     }
 
     private void httpDeleteMapNameToId(ServerRequest serverRequest, ServerResponse serverResponse) {
-        String name = NamespaceUtils.toNamespace(NamespaceUtils.toComponents(serverRequest.path().param("name")));
+        String name = getNamePathParamWhenNotMappedAsRoutingPattern(serverRequest);
         nameIndex.deleteMappingFor(name)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(v -> {
