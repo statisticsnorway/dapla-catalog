@@ -6,6 +6,10 @@ import java.util.stream.Collectors;
 
 public class NamespaceUtils {
 
+    public static String normalize(String name) {
+        return NamespaceUtils.toNamespace(NamespaceUtils.toComponents(name));
+    }
+
     public static List<String> toComponents(String name) {
         String source = name;
         while (source.startsWith("/")) {
