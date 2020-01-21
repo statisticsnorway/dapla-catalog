@@ -1,15 +1,19 @@
 package no.ssb.dapla.catalog.dataset;
 
+import com.google.common.base.Strings;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.grpc.CallCredentials;
+import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
 import io.helidon.common.http.Http;
 import io.helidon.common.http.MediaType;
 import io.helidon.webserver.Handler;
+import io.helidon.webserver.RequestHeaders;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
@@ -41,6 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase implements Service {
@@ -88,6 +93,36 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                 });
     }
 
+    static class AuthorizationBearer extends CallCredentials {
+
+        private String token;
+
+        AuthorizationBearer(String token) {
+            this.token = token;
+        }
+
+        static AuthorizationBearer from(RequestHeaders headers) {
+            String token = headers.first("Authorization").map(s -> {
+                if (Strings.isNullOrEmpty(s) || !s.startsWith("Bearer ")) {
+                    return "";
+                }
+                return s.split(" ")[1];
+            }).orElse("");
+            return new AuthorizationBearer(token);
+        }
+
+        @Override
+        public void applyRequestMetadata(RequestInfo requestInfo, Executor appExecutor, MetadataApplier applier) {
+            Metadata metadata = new Metadata();
+            metadata.put(Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER), String.format("Bearer %s", token));
+            appExecutor.execute(() -> applier.apply(metadata));
+        }
+
+        @Override
+        public void thisUsesUnstableApi() {
+        }
+    }
+
     void httpPut(ServerRequest request, ServerResponse response, Dataset dataset) {
         LogUtils.trace(LOG, "httpPut", request, dataset);
         String datasetId = request.path().param("datasetId");
@@ -111,7 +146,9 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                 .setState(dataset.getState().name())
                 .build();
 
-        ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.hasAccess(checkRequest);
+        AuthorizationBearer authorizationBearer = AuthorizationBearer.from(request.headers());
+
+        ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.withCallCredentials(authorizationBearer).hasAccess(checkRequest);
 
 
         Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
