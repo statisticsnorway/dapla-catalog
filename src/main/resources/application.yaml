@@ -18,3 +18,7 @@ bigtable:
       path: /conf/dapla-catalog-bigtable-test.json
     default:
     compute-engine:
+
+auth-service:
+  host: localhost
+  port: 7070
