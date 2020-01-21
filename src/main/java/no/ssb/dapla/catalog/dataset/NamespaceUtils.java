@@ -8,8 +8,8 @@ public class NamespaceUtils {
 
     public static List<String> toComponents(String name) {
         String source = name;
-        if (name.startsWith("/")) {
-            source = name.substring(1);
+        while (source.startsWith("/")) {
+            source = source.substring(1);
         }
         String[] parts = source.split("/");
         return Arrays.asList(parts);
