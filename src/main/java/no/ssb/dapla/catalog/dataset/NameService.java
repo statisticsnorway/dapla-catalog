@@ -8,6 +8,7 @@ import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
+import no.ssb.helidon.application.LogUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +44,7 @@ public class NameService implements Service {
     }
 
     public void httpGetMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse) {
+        LogUtils.trace(LOG, "httpGetMapNameToId", httpRequest);
         String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
         nameIndex.mapNameToId(name)
                 .orTimeout(10, TimeUnit.SECONDS)
@@ -63,6 +65,7 @@ public class NameService implements Service {
     }
 
     public void httpPostMapNameToId(ServerRequest httpRequest, ServerResponse httpResponse, MapNameToIdRequest mapNameToIdRequest) {
+        LogUtils.trace(LOG, "httpPostMapNameToId", httpRequest, mapNameToIdRequest);
         String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
         String proposedId = mapNameToIdRequest.getProposedId().isBlank() ? UUID.randomUUID().toString() : mapNameToIdRequest.getProposedId();
         nameIndex.mapNameToId(name, proposedId)
@@ -84,6 +87,7 @@ public class NameService implements Service {
     }
 
     private void httpDeleteMapNameToId(ServerRequest serverRequest, ServerResponse serverResponse) {
+        LogUtils.trace(LOG, "httpDeleteMapNameToId", serverRequest);
         String name = getNamePathParamWhenNotMappedAsRoutingPattern(serverRequest);
         nameIndex.deleteMappingFor(name)
                 .orTimeout(10, TimeUnit.SECONDS)

@@ -34,6 +34,7 @@ import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
 import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
+import no.ssb.helidon.application.LogUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +66,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     }
 
     void httpGet(ServerRequest request, ServerResponse response) {
+        LogUtils.trace(LOG, "httpGet", request);
         String datasetId = request.path().param("datasetId");
         CompletableFuture<Dataset> future = repository.get(datasetId);
         if (!request.queryParams().first("notimeout").isPresent()) {
@@ -87,6 +89,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     }
 
     void httpPut(ServerRequest request, ServerResponse response, Dataset dataset) {
+        LogUtils.trace(LOG, "httpPut", request, dataset);
         String datasetId = request.path().param("datasetId");
         Optional<String> userId = request.queryParams().first("userId");
 
@@ -144,6 +147,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
     }
 
     void httpDelete(ServerRequest request, ServerResponse response) {
+        LogUtils.trace(LOG, "httpDelete", request);
         String datasetId = request.path().param("datasetId");
         CompletableFuture<Integer> future = repository.delete(datasetId);
         if (!request.queryParams().first("notimeout").isPresent()) {
@@ -298,7 +302,7 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                                 responseObserver.onError(throwable);
                                 return null;
                             });
-                }else{
+                } else {
                     responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
                 }
                 return;
