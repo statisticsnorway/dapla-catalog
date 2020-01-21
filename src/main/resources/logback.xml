@@ -12,6 +12,10 @@
         </encoder>
     </appender>
 
+    <logger name="no.ssb.dapla.catalog" level="debug" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
     <logger name="io.helidon.webserver.AccessLog" level="info" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
