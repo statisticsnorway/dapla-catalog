@@ -1,6 +1,8 @@
 webserver:
   port: 8070
   host: "0.0.0.0"
+  access-log:
+    format: "%h %u %t %r %s %b %T %{Referer}i"
 
 grpcserver:
   port: 1408

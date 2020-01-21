@@ -10,6 +10,7 @@ import io.helidon.metrics.MetricsSupport;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
+import io.helidon.webserver.accesslog.AccessLogSupport;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.DatasetService;
@@ -88,6 +89,7 @@ public class Application extends DefaultHelidonApplication {
         put(GrpcServer.class, grpcServer);
 
         Routing routing = Routing.builder()
+                .register(AccessLogSupport.create(config.get("webserver.access-log")))
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register("/dataset", dataSetService)

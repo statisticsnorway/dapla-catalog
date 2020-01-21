@@ -3,6 +3,7 @@ module no.ssb.dapla.catalog {
     requires jul.to.slf4j;
     requires org.reactivestreams;
     requires io.helidon.webserver;
+    requires io.helidon.webserver.accesslog;
     requires io.helidon.config;
     requires java.net.http;
     requires io.helidon.common.reactive;
