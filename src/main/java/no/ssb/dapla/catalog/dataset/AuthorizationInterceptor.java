@@ -17,11 +17,12 @@ public class AuthorizationInterceptor implements ServerInterceptor {
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
         LOG.trace("Intercepted grpc call, headers: {}", headers);
         String authorization = headers.get(Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER));
-        if (!authorization.startsWith("Bearer ")) {
-            LOG.error("Missing GRPC header: Authorization");
-            throw new RuntimeException("Missing GRPC header: Authorization");
+        String token;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring("Bearer ".length());
+        } else {
+            token = "no-grpc-token";
         }
-        String token = authorization.substring("Bearer ".length());
         tokenThreadLocal.set(token);
         return next.startCall(call, headers);
     }
