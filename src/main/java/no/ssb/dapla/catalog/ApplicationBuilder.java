@@ -29,8 +29,10 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
         if (authGrpcClientChannel == null) {
             authGrpcClientChannel = ManagedChannelBuilder
                     .forAddress(
-                            config.get("auth-service").get("host").asString().orElse("localhost"),
-                            config.get("auth-service").get("port").asInt().orElse(7070)
+                            config.get("auth-service").get("host").asString().orElseThrow(() ->
+                                    new RuntimeException("missing configuration: auth-service.host")),
+                            config.get("auth-service").get("port").asInt().orElseThrow(() ->
+                                    new RuntimeException("missing configuration: auth-service.port"))
                     )
                     .usePlaintext()
                     .build();
