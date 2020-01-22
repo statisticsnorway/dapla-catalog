@@ -12,8 +12,10 @@ import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.accesslog.AccessLogSupport;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
+import no.ssb.dapla.catalog.dataset.AuthorizationInterceptor;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.DatasetService;
+import no.ssb.dapla.catalog.dataset.LoggingInterceptor;
 import no.ssb.dapla.catalog.dataset.NameIndex;
 import no.ssb.dapla.catalog.dataset.NameService;
 import no.ssb.dapla.catalog.dataset.PrefixService;
@@ -83,6 +85,8 @@ public class Application extends DefaultHelidonApplication {
         GrpcServer grpcServer = GrpcServer.create(
                 GrpcServerConfiguration.create(config.get("grpcserver")),
                 GrpcRouting.builder()
+                        .intercept(new LoggingInterceptor())
+                        .intercept(new AuthorizationInterceptor())
                         .register(dataSetService)
                         .build()
         );

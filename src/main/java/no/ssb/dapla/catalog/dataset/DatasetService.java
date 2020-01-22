@@ -106,8 +106,8 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                 if (Strings.isNullOrEmpty(s) || !s.startsWith("Bearer ")) {
                     return "";
                 }
-                return s.split(" ")[1];
-            }).orElse("");
+                return s.substring("Bearer ".length());
+            }).orElse("no-token");
             return new AuthorizationBearer(token);
         }
 
@@ -324,7 +324,8 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                 .setState(dataset.getState().name())
                 .build();
 
-        ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.hasAccess(checkRequest);
+        CallCredentials credentials = new AuthorizationBearer(AuthorizationInterceptor.tokenThreadLocal.get());
+        ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.withCallCredentials(credentials).hasAccess(checkRequest);
 
         Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
             @Override
