@@ -324,7 +324,10 @@ public class DatasetService extends CatalogServiceGrpc.CatalogServiceImplBase im
                 .setState(dataset.getState().name())
                 .build();
 
-        CallCredentials credentials = new AuthorizationBearer(AuthorizationInterceptor.tokenThreadLocal.get());
+        String token = AuthorizationInterceptor.tokenThreadLocal.get();
+        CallCredentials credentials = new AuthorizationBearer(token);
+
+        LOG.trace("Calling authService.hasAccess() with token: {}", token);
         ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.withCallCredentials(credentials).hasAccess(checkRequest);
 
         Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
