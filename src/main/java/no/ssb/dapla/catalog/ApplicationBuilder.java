@@ -7,10 +7,15 @@ import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.helidon.application.DefaultHelidonApplicationBuilder;
 import no.ssb.helidon.application.HelidonApplication;
 import no.ssb.helidon.application.HelidonApplicationBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static java.util.Optional.ofNullable;
 
 public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ApplicationBuilder.class);
+
     ManagedChannel authGrpcClientChannel;
 
     @Override
@@ -27,13 +32,13 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
         Config config = ofNullable(this.config).orElseGet(() -> createDefaultConfig());
 
         if (authGrpcClientChannel == null) {
+            String host = config.get("auth-service").get("host").asString().orElseThrow(() ->
+                    new RuntimeException("missing configuration: auth-service.host"));
+            int port = config.get("auth-service").get("port").asInt().orElseThrow(() ->
+                    new RuntimeException("missing configuration: auth-service.port"));
+            LOG.debug("Creating authGrpcClientChannel with configuration: host={}, port={}", host, port);
             authGrpcClientChannel = ManagedChannelBuilder
-                    .forAddress(
-                            config.get("auth-service").get("host").asString().orElseThrow(() ->
-                                    new RuntimeException("missing configuration: auth-service.host")),
-                            config.get("auth-service").get("port").asInt().orElseThrow(() ->
-                                    new RuntimeException("missing configuration: auth-service.port"))
-                    )
+                    .forAddress(host, port)
                     .usePlaintext()
                     .build();
         }
