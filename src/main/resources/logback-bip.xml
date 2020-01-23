@@ -10,7 +10,7 @@
         </encoder>
     </appender>
 
-    <logger name="no.ssb.dapla.catalog" level="info" additivity="false">
+    <logger name="no.ssb.dapla.catalog" level="trace" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 
