@@ -2,6 +2,7 @@ package no.ssb.dapla.catalog;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
+import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
 import io.helidon.grpc.server.GrpcRouting;
 import io.helidon.grpc.server.GrpcServer;
@@ -15,6 +16,7 @@ import io.helidon.webserver.WebServer;
 import io.helidon.webserver.WebTracingConfig;
 import io.helidon.webserver.accesslog.AccessLogSupport;
 import io.opentracing.Tracer;
+import io.opentracing.contrib.grpc.OperationNameConstructor;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.dataset.AuthorizationInterceptor;
 import no.ssb.dapla.catalog.dataset.DatasetGrpcService;
@@ -87,6 +89,12 @@ public class Application extends DefaultHelidonApplication {
                         .tracingConfig(GrpcTracingConfig.builder()
                                 .withStreaming()
                                 .withVerbosity()
+                                .withOperationName(new OperationNameConstructor() {
+                                    @Override
+                                    public <ReqT, RespT> String constructOperationName(MethodDescriptor<ReqT, RespT> method) {
+                                        return "Grpc server: " + method.getFullMethodName();
+                                    }
+                                })
                                 .withTracedAttributes(ServerRequestAttribute.CALL_ATTRIBUTES,
                                         ServerRequestAttribute.HEADERS,
                                         ServerRequestAttribute.METHOD_NAME)
