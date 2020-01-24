@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 
 import static no.ssb.dapla.catalog.dataset.Tracing.logError;
 import static no.ssb.dapla.catalog.dataset.Tracing.spanFromGrpc;
+import static no.ssb.dapla.catalog.dataset.Tracing.traceOutputMessage;
 
 public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBase {
 
@@ -78,7 +79,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void mapNameToId(MapNameToIdRequest request, StreamObserver<MapNameToIdResponse> responseObserver) {
-        Span span = spanFromGrpc("mapNameToId");
+        Span span = spanFromGrpc(request, "mapNameToId");
         try {
             String name = NamespaceUtils.toNamespace(request.getNameList());
             CompletableFuture<String> future;
@@ -91,7 +92,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
                         MapNameToIdResponse response = MapNameToIdResponse.newBuilder().setId(datasetId == null ? "" : datasetId).build();
-                        responseObserver.onNext(response);
+                        responseObserver.onNext(traceOutputMessage(span, response));
                         responseObserver.onCompleted();
                         span.finish();
                     })
@@ -119,14 +120,14 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void unmapName(UnmapNameRequest request, StreamObserver<UnmapNameResponse> responseObserver) {
-        Span span = spanFromGrpc("unmapName");
+        Span span = spanFromGrpc(request, "unmapName");
         try {
             String name = NamespaceUtils.toNamespace(request.getNameList());
             nameIndex.deleteMappingFor(name)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
                         UnmapNameResponse response = UnmapNameResponse.newBuilder().build();
-                        responseObserver.onNext(response);
+                        responseObserver.onNext(traceOutputMessage(span, response));
                         responseObserver.onCompleted();
                         span.finish();
                     })
@@ -153,7 +154,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void getById(GetByIdDatasetRequest request, StreamObserver<GetByIdDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc("getById");
+        Span span = spanFromGrpc(request, "getById");
         try {
             repositoryGet(request.getId(), request.getTimestamp())
                     .orTimeout(5, TimeUnit.SECONDS)
@@ -162,7 +163,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                         if (dataset != null) {
                             builder.setDataset(dataset);
                         }
-                        responseObserver.onNext(builder.build());
+                        responseObserver.onNext(traceOutputMessage(span, builder.build()));
                         responseObserver.onCompleted();
                         span.finish();
                     })
@@ -189,7 +190,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void getByName(GetByNameDatasetRequest request, StreamObserver<GetByNameDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc("getByName");
+        Span span = spanFromGrpc(request, "getByName");
         try {
             nameIndex.mapNameToId(NamespaceUtils.toNamespace(request.getNameList())).thenAccept(id -> {
                 repositoryGet(id, request.getTimestamp())
@@ -199,7 +200,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                             if (dataset != null) {
                                 builder.setDataset(dataset);
                             }
-                            responseObserver.onNext(builder.build());
+                            responseObserver.onNext(traceOutputMessage(span, builder.build()));
                             responseObserver.onCompleted();
                             span.finish();
                         })
@@ -246,13 +247,13 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void listByPrefix(ListByPrefixRequest request, StreamObserver<ListByPrefixResponse> responseObserver) {
-        Span span = spanFromGrpc("listByPrefix");
+        Span span = spanFromGrpc(request, "listByPrefix");
         try {
             nameIndex.listByPrefix(request.getPrefix(), 100)
                     .orTimeout(5, TimeUnit.SECONDS)
                     .thenAccept(entries -> {
                         ListByPrefixResponse response = ListByPrefixResponse.newBuilder().addAllEntries(entries).build();
-                        responseObserver.onNext(response);
+                        responseObserver.onNext(traceOutputMessage(span, response));
                         responseObserver.onCompleted();
                         span.finish();
                     })
@@ -279,7 +280,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void save(SaveDatasetRequest request, StreamObserver<SaveDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc("save");
+        Span span = spanFromGrpc(request, "save");
         try {
             String userId = request.getUserId();
             Dataset dataset = request.getDataset();
@@ -303,7 +304,7 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                         repository.create(request.getDataset())
                                 .orTimeout(5, TimeUnit.SECONDS)
                                 .thenAccept(aVoid -> {
-                                    responseObserver.onNext(SaveDatasetResponse.getDefaultInstance());
+                                    responseObserver.onNext(traceOutputMessage(span, SaveDatasetResponse.getDefaultInstance()));
                                     responseObserver.onCompleted();
                                     span.finish();
                                 })
@@ -347,12 +348,12 @@ public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void delete(DeleteDatasetRequest request, StreamObserver<DeleteDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc("delete");
+        Span span = spanFromGrpc(request, "delete");
         try {
             repository.delete(request.getId())
                     .orTimeout(5, TimeUnit.SECONDS)
                     .thenAccept(integer -> {
-                        responseObserver.onNext(DeleteDatasetResponse.getDefaultInstance());
+                        responseObserver.onNext(traceOutputMessage(span, DeleteDatasetResponse.getDefaultInstance()));
                         responseObserver.onCompleted();
                         span.finish();
                     })
