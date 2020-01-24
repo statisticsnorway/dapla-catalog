@@ -13,7 +13,7 @@ import javax.inject.Inject;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(IntegrationTestExtension.class)
-class NameServiceTest {
+class NameHttpServiceTest {
 
     @Inject
     Application application;

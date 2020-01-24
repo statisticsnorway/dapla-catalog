@@ -16,7 +16,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(IntegrationTestExtension.class)
-class PrefixServiceTest {
+class PrefixHttpServiceTest {
 
     @Inject
     Application application;

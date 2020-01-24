@@ -3,6 +3,10 @@ package no.ssb.dapla.catalog;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.helidon.config.Config;
+import io.helidon.tracing.TracerBuilder;
+import io.opentracing.Tracer;
+import io.opentracing.contrib.grpc.TracingClientInterceptor;
+import io.opentracing.contrib.grpc.TracingClientInterceptor.ClientRequestAttribute;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.helidon.application.DefaultHelidonApplicationBuilder;
 import no.ssb.helidon.application.HelidonApplication;
@@ -43,8 +47,19 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
                     .build();
         }
 
-        AuthServiceGrpc.AuthServiceFutureStub authService = AuthServiceGrpc.newFutureStub(authGrpcClientChannel);
+        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(true);
+        Tracer tracer = tracerBuilder.build();
 
-        return new Application(config, authService);
+        TracingClientInterceptor tracingInterceptor = TracingClientInterceptor.newBuilder()
+                .withTracer(tracer)
+                .withStreaming()
+                .withVerbosity()
+                .withActiveSpanSource(() -> tracer.scopeManager().activeSpan())
+                .withTracedAttributes(ClientRequestAttribute.ALL_CALL_OPTIONS, ClientRequestAttribute.HEADERS)
+                .build();
+
+        AuthServiceGrpc.AuthServiceFutureStub authService = AuthServiceGrpc.newFutureStub(tracingInterceptor.intercept(authGrpcClientChannel));
+
+        return new Application(config, tracer, authService);
     }
 }

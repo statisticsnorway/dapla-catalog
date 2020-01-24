@@ -12,7 +12,7 @@ bigtable:
   generate-schema: true
   emulator: true
   host: localhost
-  port: 9035
+  port: 29035
   project-id: my-project
   instance-id: my-instance
   credential-provider: default
@@ -25,3 +25,18 @@ bigtable:
 auth-service:
   host: localhost
   port: 10108
+
+tracing:
+  enabled: true
+  service: catalog
+  protocol: http
+  host: localhost
+  port: 14268
+  path: /api/traces
+  paths:
+    - path: "/favicon.ico"
+      enabled: false
+    - path: "/metrics"
+      enabled: false
+    - path: "/health"
+      enabled: false
