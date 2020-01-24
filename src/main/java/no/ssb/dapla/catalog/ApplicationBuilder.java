@@ -59,7 +59,7 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
                 .withOperationName(new OperationNameConstructor() {
                     @Override
                     public <ReqT, RespT> String constructOperationName(MethodDescriptor<ReqT, RespT> method) {
-                        return "Grpc client " + method.getFullMethodName();
+                        return "Grpc client to " + method.getFullMethodName();
                     }
                 })
                 .withActiveSpanSource(() -> tracer.scopeManager().activeSpan())

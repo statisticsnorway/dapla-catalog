@@ -92,7 +92,7 @@ public class Application extends DefaultHelidonApplication {
                                 .withOperationName(new OperationNameConstructor() {
                                     @Override
                                     public <ReqT, RespT> String constructOperationName(MethodDescriptor<ReqT, RespT> method) {
-                                        return "Grpc server: " + method.getFullMethodName();
+                                        return "Grpc server received " + method.getFullMethodName();
                                     }
                                 })
                                 .withTracedAttributes(ServerRequestAttribute.CALL_ATTRIBUTES,
