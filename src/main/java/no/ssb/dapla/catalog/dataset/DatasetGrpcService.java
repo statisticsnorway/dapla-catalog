@@ -38,9 +38,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import static no.ssb.dapla.catalog.dataset.Tracing.logError;
-import static no.ssb.dapla.catalog.dataset.Tracing.spanFromGrpc;
-import static no.ssb.dapla.catalog.dataset.Tracing.traceOutputMessage;
+import static no.ssb.helidon.application.Tracing.logError;
+import static no.ssb.helidon.application.Tracing.spanFromGrpc;
+import static no.ssb.helidon.application.Tracing.traceOutputMessage;
 
 public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBase {
 

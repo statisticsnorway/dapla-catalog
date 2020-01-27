@@ -17,8 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static no.ssb.dapla.catalog.dataset.Tracing.logError;
-import static no.ssb.dapla.catalog.dataset.Tracing.spanFromHttp;
+import static no.ssb.helidon.application.Tracing.logError;
+import static no.ssb.helidon.application.Tracing.spanFromHttp;
 
 public class NameHttpService implements Service {
 
