@@ -22,7 +22,6 @@ import no.ssb.dapla.catalog.dataset.AuthorizationInterceptor;
 import no.ssb.dapla.catalog.dataset.CatalogGrpcService;
 import no.ssb.dapla.catalog.dataset.DatasetHttpService;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
-import no.ssb.dapla.catalog.dataset.LoggingInterceptor;
 import no.ssb.dapla.catalog.dataset.NameHttpService;
 import no.ssb.dapla.catalog.dataset.NameIndex;
 import no.ssb.dapla.catalog.dataset.PrefixHttpService;
@@ -101,7 +100,6 @@ public class Application extends DefaultHelidonApplication {
                                 .build()
                         ),
                 GrpcRouting.builder()
-                        .intercept(new LoggingInterceptor())
                         .intercept(new AuthorizationInterceptor())
                         .register(dataSetGrpcService)
                         .build()

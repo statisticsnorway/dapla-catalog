@@ -1,16 +1,12 @@
 package no.ssb.dapla.catalog.dataset;
 
-import com.google.common.base.Strings;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.grpc.CallCredentials;
-import io.grpc.Metadata;
 import io.helidon.common.http.Http;
 import io.helidon.common.http.MediaType;
 import io.helidon.webserver.Handler;
-import io.helidon.webserver.RequestHeaders;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
@@ -21,13 +17,13 @@ import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.auth.dataset.protobuf.Role;
 import no.ssb.dapla.catalog.protobuf.Dataset;
+import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import static no.ssb.helidon.application.Tracing.logError;
@@ -129,7 +125,7 @@ public class DatasetHttpService implements Service {
                     .setState(dataset.getState().name())
                     .build();
 
-            AuthorizationBearer authorizationBearer = AuthorizationBearer.from(request.headers());
+            GrpcAuthorizationBearerCallCredentials authorizationBearer = GrpcAuthorizationBearerCallCredentials.from(request.headers());
 
             ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService.withCallCredentials(authorizationBearer).hasAccess(checkRequest);
 
@@ -223,35 +219,6 @@ public class DatasetHttpService implements Service {
             } finally {
                 span.finish();
             }
-        }
-    }
-
-    static class AuthorizationBearer extends CallCredentials {
-        private String token;
-
-        AuthorizationBearer(String token) {
-            this.token = token;
-        }
-
-        static AuthorizationBearer from(RequestHeaders headers) {
-            String token = headers.first("Authorization").map(s -> {
-                if (Strings.isNullOrEmpty(s) || !s.startsWith("Bearer ")) {
-                    return "";
-                }
-                return s.substring("Bearer ".length());
-            }).orElse("no-token");
-            return new AuthorizationBearer(token);
-        }
-
-        @Override
-        public void applyRequestMetadata(RequestInfo requestInfo, Executor appExecutor, MetadataApplier applier) {
-            Metadata metadata = new Metadata();
-            metadata.put(Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER), String.format("Bearer %s", token));
-            appExecutor.execute(() -> applier.apply(metadata));
-        }
-
-        @Override
-        public void thisUsesUnstableApi() {
         }
     }
 }

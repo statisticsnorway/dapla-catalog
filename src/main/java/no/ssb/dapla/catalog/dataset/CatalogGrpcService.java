@@ -4,8 +4,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.grpc.CallCredentials;
-import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
@@ -30,12 +28,12 @@ import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
 import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
+import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import static no.ssb.helidon.application.Tracing.logError;
@@ -55,26 +53,6 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
         this.repository = repository;
         this.nameIndex = nameIndex;
         this.authService = authService;
-    }
-
-    static class AuthorizationBearer extends CallCredentials {
-
-        private String token;
-
-        AuthorizationBearer(String token) {
-            this.token = token;
-        }
-
-        @Override
-        public void applyRequestMetadata(RequestInfo requestInfo, Executor appExecutor, MetadataApplier applier) {
-            Metadata metadata = new Metadata();
-            metadata.put(Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER), String.format("Bearer %s", token));
-            appExecutor.execute(() -> applier.apply(metadata));
-        }
-
-        @Override
-        public void thisUsesUnstableApi() {
-        }
     }
 
     @Override
@@ -294,7 +272,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     .build();
 
             ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService
-                    .withCallCredentials(new AuthorizationBearer(AuthorizationInterceptor.tokenThreadLocal.get()))
+                    .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.tokenThreadLocal.get()))
                     .hasAccess(checkRequest);
 
             Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
