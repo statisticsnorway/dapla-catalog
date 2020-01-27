@@ -11,6 +11,7 @@ module no.ssb.dapla.catalog {
     requires io.helidon.metrics;
     requires io.helidon.health;
     requires io.helidon.health.checks;
+    requires io.helidon.tracing;
     requires io.grpc;
 
     requires com.google.api.apicommon;
@@ -50,6 +51,7 @@ module no.ssb.dapla.catalog {
     requires com.fasterxml.jackson.databind;  // required by logstash-encoder
 
     requires org.checkerframework.checker.qual;
+    requires jaeger.core;
 
     provides no.ssb.helidon.application.HelidonApplicationBuilder with no.ssb.dapla.catalog.ApplicationBuilder;
 }

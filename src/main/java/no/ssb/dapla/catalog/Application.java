@@ -2,23 +2,29 @@ package no.ssb.dapla.catalog;
 
 import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
+import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
 import io.helidon.grpc.server.GrpcRouting;
 import io.helidon.grpc.server.GrpcServer;
 import io.helidon.grpc.server.GrpcServerConfiguration;
+import io.helidon.grpc.server.GrpcTracingConfig;
+import io.helidon.grpc.server.ServerRequestAttribute;
 import io.helidon.metrics.MetricsSupport;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
+import io.helidon.webserver.WebTracingConfig;
 import io.helidon.webserver.accesslog.AccessLogSupport;
+import io.opentracing.Tracer;
+import io.opentracing.contrib.grpc.OperationNameConstructor;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.catalog.dataset.AuthorizationInterceptor;
+import no.ssb.dapla.catalog.dataset.CatalogGrpcService;
+import no.ssb.dapla.catalog.dataset.DatasetHttpService;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
-import no.ssb.dapla.catalog.dataset.DatasetService;
-import no.ssb.dapla.catalog.dataset.LoggingInterceptor;
+import no.ssb.dapla.catalog.dataset.NameHttpService;
 import no.ssb.dapla.catalog.dataset.NameIndex;
-import no.ssb.dapla.catalog.dataset.NameService;
-import no.ssb.dapla.catalog.dataset.PrefixService;
+import no.ssb.dapla.catalog.dataset.PrefixHttpService;
+import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.application.HelidonApplication;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
@@ -53,7 +59,7 @@ public class Application extends DefaultHelidonApplication {
                 });
     }
 
-    Application(Config config, AuthServiceGrpc.AuthServiceFutureStub authService) {
+    Application(Config config, Tracer tracer, AuthServiceGrpc.AuthServiceFutureStub authService) {
         put(Config.class, config);
 
         BigtableTableAdminClient bigtableTableAdminClient = BigtableInitializer.createBigtableAdminClient(config.get("bigtable"));
@@ -70,40 +76,61 @@ public class Application extends DefaultHelidonApplication {
         NameIndex nameIndex = new NameIndex(dataClient);
         put(NameIndex.class, nameIndex);
 
-        // dataset access grpc service
+        // dataset-access grpc client
         put(AuthServiceGrpc.AuthServiceFutureStub.class, authService);
 
-        DatasetService dataSetService = new DatasetService(repository, nameIndex, authService);
-        put(DatasetService.class, dataSetService);
-
-        NameService nameService = new NameService(nameIndex);
-        put(NameService.class, nameService);
-
-        PrefixService prefixService = new PrefixService(nameIndex);
-        put(PrefixService.class, prefixService);
+        CatalogGrpcService dataSetGrpcService = new CatalogGrpcService(repository, nameIndex, authService);
+        put(CatalogGrpcService.class, dataSetGrpcService);
 
         GrpcServer grpcServer = GrpcServer.create(
-                GrpcServerConfiguration.create(config.get("grpcserver")),
+                GrpcServerConfiguration.builder(config.get("grpcserver"))
+                        .tracer(tracer)
+                        .tracingConfig(GrpcTracingConfig.builder()
+                                .withStreaming()
+                                .withVerbosity()
+                                .withOperationName(new OperationNameConstructor() {
+                                    @Override
+                                    public <ReqT, RespT> String constructOperationName(MethodDescriptor<ReqT, RespT> method) {
+                                        return "Grpc server received " + method.getFullMethodName();
+                                    }
+                                })
+                                .withTracedAttributes(ServerRequestAttribute.CALL_ATTRIBUTES,
+                                        ServerRequestAttribute.HEADERS,
+                                        ServerRequestAttribute.METHOD_NAME)
+                                .build()
+                        ),
                 GrpcRouting.builder()
-                        .intercept(new LoggingInterceptor())
                         .intercept(new AuthorizationInterceptor())
-                        .register(dataSetService)
+                        .register(dataSetGrpcService)
                         .build()
         );
         put(GrpcServer.class, grpcServer);
 
+        DatasetHttpService dataSetHttpService = new DatasetHttpService(repository, nameIndex, authService);
+        put(DatasetHttpService.class, dataSetHttpService);
+
+        NameHttpService nameHttpService = new NameHttpService(nameIndex);
+        put(NameHttpService.class, nameHttpService);
+
+        PrefixHttpService prefixHttpService = new PrefixHttpService(nameIndex);
+        put(PrefixHttpService.class, prefixHttpService);
+
         Routing routing = Routing.builder()
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
+                .register(WebTracingConfig.create(config.get("tracing")))
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
-                .register("/dataset", dataSetService)
-                .register("/name", nameService)
-                .register("/prefix", prefixService)
+                .register("/dataset", dataSetHttpService)
+                .register("/name", nameHttpService)
+                .register("/prefix", prefixHttpService)
                 .build();
         put(Routing.class, routing);
 
-        ServerConfiguration configuration = ServerConfiguration.builder(config.get("webserver")).build();
-        WebServer webServer = WebServer.create(configuration, routing);
+        WebServer webServer = WebServer.create(
+                ServerConfiguration.builder(config.get("webserver"))
+                        .tracer(tracer)
+                        .build(),
+                routing);
         put(WebServer.class, webServer);
     }
 
