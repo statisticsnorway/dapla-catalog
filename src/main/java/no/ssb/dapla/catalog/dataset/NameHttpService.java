@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 import static no.ssb.helidon.application.Tracing.logError;
 import static no.ssb.helidon.application.Tracing.spanFromHttp;
+import static no.ssb.helidon.application.Tracing.traceOutputMessage;
 
 public class NameHttpService implements Service {
 
@@ -50,6 +51,7 @@ public class NameHttpService implements Service {
         Span span = spanFromHttp(httpRequest, "mapNameToId");
         try {
             String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
+            span.setTag("name", name);
             nameIndex.mapNameToId(name)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
@@ -60,6 +62,7 @@ public class NameHttpService implements Service {
                         }
                         MapNameToIdResponse response = MapNameToIdResponse.newBuilder().setId(datasetId).build();
                         httpResponse.send(response);
+                        traceOutputMessage(span, response);
                         span.finish();
                     })
                     .exceptionally(throwable -> {
@@ -88,7 +91,9 @@ public class NameHttpService implements Service {
         Span span = spanFromHttp(httpRequest, "mapNameToIdWithProposedId");
         try {
             String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
+            span.setTag("name", name);
             String proposedId = mapNameToIdRequest.getProposedId().isBlank() ? UUID.randomUUID().toString() : mapNameToIdRequest.getProposedId();
+            span.setTag("proposedId", proposedId);
             nameIndex.mapNameToId(name, proposedId)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
@@ -99,6 +104,7 @@ public class NameHttpService implements Service {
                         }
                         MapNameToIdResponse response = MapNameToIdResponse.newBuilder().setId(datasetId).build();
                         httpResponse.send(response);
+                        traceOutputMessage(span, response);
                         span.finish();
                     })
                     .exceptionally(throwable -> {
@@ -127,6 +133,7 @@ public class NameHttpService implements Service {
         Span span = spanFromHttp(serverRequest, "deleteNameToIdMapping");
         try {
             String name = getNamePathParamWhenNotMappedAsRoutingPattern(serverRequest);
+            span.setTag("name", name);
             nameIndex.deleteMappingFor(name)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(v -> {

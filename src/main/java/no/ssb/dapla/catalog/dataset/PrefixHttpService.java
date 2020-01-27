@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 
 import static no.ssb.helidon.application.Tracing.logError;
 import static no.ssb.helidon.application.Tracing.spanFromHttp;
+import static no.ssb.helidon.application.Tracing.traceOutputMessage;
 
 public class PrefixHttpService implements Service {
 
@@ -34,7 +35,9 @@ public class PrefixHttpService implements Service {
         Span span = spanFromHttp(httpRequest, "listByPrefix");
         try {
             String prefix = httpRequest.path().toString();
+            span.setTag("prefix", prefix);
             int limit = Integer.parseInt(httpRequest.queryParams().first("limit").orElse("100"));
+            span.setTag("limit", limit);
             nameIndex.listByPrefix(prefix, limit)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(entries -> {
@@ -45,6 +48,7 @@ public class PrefixHttpService implements Service {
                         }
                         ListByPrefixResponse responseEntity = ListByPrefixResponse.newBuilder().addAllEntries(entries).build();
                         httpResponse.send(responseEntity);
+                        traceOutputMessage(span, responseEntity);
                         span.finish();
                     })
                     .exceptionally(throwable -> {

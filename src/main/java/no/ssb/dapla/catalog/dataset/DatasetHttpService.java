@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 
 import static no.ssb.helidon.application.Tracing.logError;
 import static no.ssb.helidon.application.Tracing.spanFromHttp;
+import static no.ssb.helidon.application.Tracing.traceInputMessage;
+import static no.ssb.helidon.application.Tracing.traceOutputMessage;
 
 public class DatasetHttpService implements Service {
 
@@ -59,6 +61,7 @@ public class DatasetHttpService implements Service {
         Span span = spanFromHttp(request, "read-dataset");
         try {
             String datasetId = request.path().param("datasetId");
+            span.setTag("datasetId", datasetId);
             CompletableFuture<Dataset> future = repository.get(datasetId);
             if (!request.queryParams().first("notimeout").isPresent()) {
                 future.orTimeout(5, TimeUnit.SECONDS);
@@ -70,6 +73,7 @@ public class DatasetHttpService implements Service {
                         } else {
                             response.headers().contentType(MediaType.APPLICATION_JSON);
                             response.send(dataset);
+                            traceOutputMessage(span, dataset);
                         }
                         span.finish();
                     })
@@ -97,20 +101,25 @@ public class DatasetHttpService implements Service {
     void write(ServerRequest request, ServerResponse response, Dataset dataset) {
         Span span = spanFromHttp(request, "write-dataset");
         try {
+            traceInputMessage(span, dataset);
             String datasetId = request.path().param("datasetId");
+            span.setTag("datasetId", datasetId);
             Optional<String> userId = request.queryParams().first("userId");
 
             if (!datasetId.equals(dataset.getId().getId())) {
+                span.log("datasetId from path-parameter does not match that in body");
                 response.status(Http.Status.BAD_REQUEST_400).send("datasetId in path must match that in body");
                 span.finish();
                 return;
             }
 
             if (userId.isEmpty()) {
+                span.log("missing query-parameter 'userId'");
                 response.status(Http.Status.BAD_REQUEST_400).send("Expected 'userId'");
                 span.finish();
                 return;
             }
+            span.setTag("userId", userId.get());
 
             AccessCheckRequest checkRequest = AccessCheckRequest.newBuilder()
                     .setUserId(userId.get())
@@ -186,6 +195,7 @@ public class DatasetHttpService implements Service {
         Span span = spanFromHttp(request, "delete-dataset");
         try {
             String datasetId = request.path().param("datasetId");
+            span.setTag("datasetId", datasetId);
             CompletableFuture<Integer> future = repository.delete(datasetId);
             if (!request.queryParams().first("notimeout").isPresent()) {
                 future.orTimeout(5, TimeUnit.SECONDS);
