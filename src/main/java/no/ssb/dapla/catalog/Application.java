@@ -19,7 +19,7 @@ import io.opentracing.Tracer;
 import io.opentracing.contrib.grpc.OperationNameConstructor;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.dataset.AuthorizationInterceptor;
-import no.ssb.dapla.catalog.dataset.DatasetGrpcService;
+import no.ssb.dapla.catalog.dataset.CatalogGrpcService;
 import no.ssb.dapla.catalog.dataset.DatasetHttpService;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.LoggingInterceptor;
@@ -80,8 +80,8 @@ public class Application extends DefaultHelidonApplication {
         // dataset-access grpc client
         put(AuthServiceGrpc.AuthServiceFutureStub.class, authService);
 
-        DatasetGrpcService dataSetGrpcService = new DatasetGrpcService(repository, nameIndex, authService);
-        put(DatasetGrpcService.class, dataSetGrpcService);
+        CatalogGrpcService dataSetGrpcService = new CatalogGrpcService(repository, nameIndex, authService);
+        put(CatalogGrpcService.class, dataSetGrpcService);
 
         GrpcServer grpcServer = GrpcServer.create(
                 GrpcServerConfiguration.builder(config.get("grpcserver"))

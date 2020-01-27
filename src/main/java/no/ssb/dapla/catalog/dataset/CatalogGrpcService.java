@@ -42,16 +42,16 @@ import static no.ssb.helidon.application.Tracing.logError;
 import static no.ssb.helidon.application.Tracing.spanFromGrpc;
 import static no.ssb.helidon.application.Tracing.traceOutputMessage;
 
-public class DatasetGrpcService extends CatalogServiceGrpc.CatalogServiceImplBase {
+public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBase {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DatasetGrpcService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CatalogGrpcService.class);
 
     final DatasetRepository repository;
     final NameIndex nameIndex;
 
     final AuthServiceGrpc.AuthServiceFutureStub authService;
 
-    public DatasetGrpcService(DatasetRepository repository, NameIndex nameIndex, AuthServiceGrpc.AuthServiceFutureStub authService) {
+    public CatalogGrpcService(DatasetRepository repository, NameIndex nameIndex, AuthServiceGrpc.AuthServiceFutureStub authService) {
         this.repository = repository;
         this.nameIndex = nameIndex;
         this.authService = authService;
