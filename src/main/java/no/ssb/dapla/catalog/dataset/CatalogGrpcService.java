@@ -28,6 +28,7 @@ import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
 import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
 import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
+import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
@@ -272,7 +273,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     .build();
 
             ListenableFuture<AccessCheckResponse> hasAccessListenableFuture = authService
-                    .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.tokenThreadLocal.get()))
+                    .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
                     .hasAccess(checkRequest);
 
             Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
