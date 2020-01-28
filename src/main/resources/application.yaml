@@ -29,6 +29,8 @@ auth-service:
 tracing:
   enabled: true
   service: catalog
+  sampler-type: const
+  sampler-param: 1
   protocol: http
   host: localhost
   port: 14268
