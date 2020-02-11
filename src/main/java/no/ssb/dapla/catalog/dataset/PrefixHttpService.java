@@ -7,6 +7,8 @@ import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
 import io.opentracing.Span;
 import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
+import no.ssb.helidon.application.TracerAndSpan;
+import no.ssb.helidon.application.Tracing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +34,8 @@ public class PrefixHttpService implements Service {
     }
 
     public void listByPrefix(ServerRequest httpRequest, ServerResponse httpResponse) {
-        Span span = spanFromHttp(httpRequest, "listByPrefix");
+        TracerAndSpan tracerAndSpan = spanFromHttp(httpRequest, "listByPrefix");
+        Span span = tracerAndSpan.span();
         try {
             String prefix = httpRequest.path().toString();
             span.setTag("prefix", prefix);
@@ -41,6 +44,7 @@ public class PrefixHttpService implements Service {
             nameIndex.listByPrefix(prefix, limit)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(entries -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         if (entries == null || entries.isEmpty()) {
                             httpResponse.status(Http.Status.NOT_FOUND_404).send();
                             span.finish();
@@ -53,6 +57,7 @@ public class PrefixHttpService implements Service {
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.listByPrefix()");
                             LOG.error(String.format("While serving httpListByPrefix for prefix: %s", prefix), throwable);
                             httpResponse.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(throwable.getMessage());

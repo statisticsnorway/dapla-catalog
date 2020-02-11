@@ -49,7 +49,7 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
                     .build();
         }
 
-        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(true);
+        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(false);
         Tracer tracer = tracerBuilder.build();
 
         TracingClientInterceptor tracingInterceptor = TracingClientInterceptor.newBuilder()

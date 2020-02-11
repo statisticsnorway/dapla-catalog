@@ -30,6 +30,8 @@ import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
 import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
+import no.ssb.helidon.application.TracerAndSpan;
+import no.ssb.helidon.application.Tracing;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +60,8 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void mapNameToId(MapNameToIdRequest request, StreamObserver<MapNameToIdResponse> responseObserver) {
-        Span span = spanFromGrpc(request, "mapNameToId");
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "mapNameToId");
+        Span span = tracerAndSpan.span();
         try {
             String name = NamespaceUtils.toNamespace(request.getNameList());
             CompletableFuture<String> future;
@@ -70,6 +73,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
             future
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         MapNameToIdResponse response = MapNameToIdResponse.newBuilder().setId(datasetId == null ? "" : datasetId).build();
                         responseObserver.onNext(traceOutputMessage(span, response));
                         responseObserver.onCompleted();
@@ -77,6 +81,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.mapNameToId()");
                             LOG.error(String.format("nameIndex.mapNameToId(): name='%s'", name), throwable);
                             responseObserver.onError(throwable);
@@ -99,12 +104,14 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void unmapName(UnmapNameRequest request, StreamObserver<UnmapNameResponse> responseObserver) {
-        Span span = spanFromGrpc(request, "unmapName");
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "unmapName");
+        Span span = tracerAndSpan.span();
         try {
             String name = NamespaceUtils.toNamespace(request.getNameList());
             nameIndex.deleteMappingFor(name)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         UnmapNameResponse response = UnmapNameResponse.newBuilder().build();
                         responseObserver.onNext(traceOutputMessage(span, response));
                         responseObserver.onCompleted();
@@ -112,6 +119,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.deleteMappingFor()");
                             LOG.error(String.format("nameIndex.deleteMappingFor(): name='%s'", name), throwable);
                             responseObserver.onError(throwable);
@@ -133,11 +141,13 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void getById(GetByIdDatasetRequest request, StreamObserver<GetByIdDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc(request, "getById");
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "getById");
+        Span span = tracerAndSpan.span();
         try {
             repositoryGet(request.getId(), request.getTimestamp())
                     .orTimeout(5, TimeUnit.SECONDS)
                     .thenAccept(dataset -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         GetByIdDatasetResponse.Builder builder = GetByIdDatasetResponse.newBuilder();
                         if (dataset != null) {
                             builder.setDataset(dataset);
@@ -148,6 +158,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in repository.get()");
                             LOG.error(String.format("repository.get(): id='%s'", request.getId()), throwable);
                             responseObserver.onError(throwable);
@@ -169,12 +180,14 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void getByName(GetByNameDatasetRequest request, StreamObserver<GetByNameDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc(request, "getByName");
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "getByName");
+        Span span = tracerAndSpan.span();
         try {
             nameIndex.mapNameToId(NamespaceUtils.toNamespace(request.getNameList())).thenAccept(id -> {
                 repositoryGet(id, request.getTimestamp())
                         .orTimeout(5, TimeUnit.SECONDS)
                         .thenAccept(dataset -> {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             GetByNameDatasetResponse.Builder builder = GetByNameDatasetResponse.newBuilder();
                             if (dataset != null) {
                                 builder.setDataset(dataset);
@@ -185,6 +198,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                         })
                         .exceptionally(throwable -> {
                             try {
+                                Tracing.restoreTracingContext(tracerAndSpan);
                                 logError(span, throwable, "error in repository.get()");
                                 LOG.error(String.format("repository.get(): name='%s', which was mapped to id '%s'", request.getNameList(), id), throwable);
                                 responseObserver.onError(throwable);
@@ -195,6 +209,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                         });
             }).exceptionally(throwable -> {
                 try {
+                    Tracing.restoreTracingContext(tracerAndSpan);
                     logError(span, throwable, "error in nameIndex.mapNameToId()");
                     LOG.error(String.format("nameIndex.mapNameToId(): name='%s'", request.getNameList()), throwable);
                     responseObserver.onError(throwable);
@@ -226,11 +241,13 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void listByPrefix(ListByPrefixRequest request, StreamObserver<ListByPrefixResponse> responseObserver) {
-        Span span = spanFromGrpc(request, "listByPrefix");
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "listByPrefix");
+        Span span = tracerAndSpan.span();
         try {
             nameIndex.listByPrefix(request.getPrefix(), 100)
                     .orTimeout(5, TimeUnit.SECONDS)
                     .thenAccept(entries -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         ListByPrefixResponse response = ListByPrefixResponse.newBuilder().addAllEntries(entries).build();
                         responseObserver.onNext(traceOutputMessage(span, response));
                         responseObserver.onCompleted();
@@ -238,6 +255,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.listByPrefix()");
                             LOG.error(String.format("nameIndex.listByPrefix(): prefix='%s'", request.getPrefix()), throwable);
                             responseObserver.onError(throwable);
@@ -259,7 +277,8 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void save(SaveDatasetRequest request, StreamObserver<SaveDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc(request, "save");
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "save");
+        Span span = tracerAndSpan.span();
         try {
             String userId = request.getUserId();
             Dataset dataset = request.getDataset();
@@ -279,16 +298,19 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
             Futures.addCallback(hasAccessListenableFuture, new FutureCallback<>() {
                 @Override
                 public void onSuccess(@Nullable AccessCheckResponse result) {
+                    Tracing.restoreTracingContext(tracerAndSpan);
                     if (result != null && result.getAllowed()) {
                         repository.create(request.getDataset())
                                 .orTimeout(5, TimeUnit.SECONDS)
                                 .thenAccept(aVoid -> {
+                                    Tracing.restoreTracingContext(tracerAndSpan);
                                     responseObserver.onNext(traceOutputMessage(span, SaveDatasetResponse.getDefaultInstance()));
                                     responseObserver.onCompleted();
                                     span.finish();
                                 })
                                 .exceptionally(throwable -> {
                                     try {
+                                        Tracing.restoreTracingContext(tracerAndSpan);
                                         logError(span, throwable, "error in repository.create()");
                                         LOG.error(String.format("repository.create(): dataset-id='%s'", request.getDataset().getId().getId()), throwable);
                                         responseObserver.onError(throwable);
@@ -306,6 +328,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                 @Override
                 public void onFailure(Throwable t) {
                     try {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         logError(span, t, "error in authService.hasAccess()");
                         LOG.error("error in authService.hasAccess()", t);
                         responseObserver.onError(t);
@@ -327,17 +350,20 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     @Override
     public void delete(DeleteDatasetRequest request, StreamObserver<DeleteDatasetResponse> responseObserver) {
-        Span span = spanFromGrpc(request, "delete");
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "delete");
+        Span span = tracerAndSpan.span();
         try {
             repository.delete(request.getId())
                     .orTimeout(5, TimeUnit.SECONDS)
                     .thenAccept(integer -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         responseObserver.onNext(traceOutputMessage(span, DeleteDatasetResponse.getDefaultInstance()));
                         responseObserver.onCompleted();
                         span.finish();
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in repository.delete()");
                             LOG.error(String.format("repository.delete(): dataset-id='%s'", request.getId()), throwable);
                             responseObserver.onError(throwable);

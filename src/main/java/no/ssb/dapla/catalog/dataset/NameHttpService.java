@@ -9,6 +9,8 @@ import io.helidon.webserver.Service;
 import io.opentracing.Span;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
+import no.ssb.helidon.application.TracerAndSpan;
+import no.ssb.helidon.application.Tracing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,13 +50,15 @@ public class NameHttpService implements Service {
     }
 
     public void mapNameToId(ServerRequest httpRequest, ServerResponse httpResponse) {
-        Span span = spanFromHttp(httpRequest, "mapNameToId");
+        TracerAndSpan tracerAndSpan = spanFromHttp(httpRequest, "mapNameToId");
+        Span span = tracerAndSpan.span();
         try {
             String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
             span.setTag("name", name);
             nameIndex.mapNameToId(name)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         if (datasetId == null) {
                             httpResponse.status(Http.Status.NOT_FOUND_404).send();
                             span.finish();
@@ -67,6 +71,7 @@ public class NameHttpService implements Service {
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.mapNameToId(name)");
                             LOG.error(String.format("error in nameIndex.mapNameToId(name): name='%s'", name), throwable);
                             httpResponse.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(throwable.getMessage());
@@ -88,7 +93,8 @@ public class NameHttpService implements Service {
     }
 
     public void mapNameToIdWithProposedId(ServerRequest httpRequest, ServerResponse httpResponse, MapNameToIdRequest mapNameToIdRequest) {
-        Span span = spanFromHttp(httpRequest, "mapNameToIdWithProposedId");
+        TracerAndSpan tracerAndSpan = spanFromHttp(httpRequest, "mapNameToIdWithProposedId");
+        Span span = tracerAndSpan.span();
         try {
             String name = getNamePathParamWhenNotMappedAsRoutingPattern(httpRequest);
             span.setTag("name", name);
@@ -97,6 +103,7 @@ public class NameHttpService implements Service {
             nameIndex.mapNameToId(name, proposedId)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(datasetId -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         if (datasetId == null) {
                             httpResponse.status(Http.Status.INTERNAL_SERVER_ERROR_500).send("Unable to map name to the proposedId.");
                             span.finish();
@@ -109,6 +116,7 @@ public class NameHttpService implements Service {
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.mapNameToId(name, proposedId)");
                             LOG.error(String.format("error in nameIndex.mapNameToId(name, proposedId): name='%s', proposedId='%s'", name, proposedId), throwable);
                             httpResponse.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(throwable.getMessage());
@@ -130,18 +138,21 @@ public class NameHttpService implements Service {
     }
 
     private void deleteNameToIdMapping(ServerRequest serverRequest, ServerResponse serverResponse) {
-        Span span = spanFromHttp(serverRequest, "deleteNameToIdMapping");
+        TracerAndSpan tracerAndSpan = spanFromHttp(serverRequest, "deleteNameToIdMapping");
+        Span span = tracerAndSpan.span();
         try {
             String name = getNamePathParamWhenNotMappedAsRoutingPattern(serverRequest);
             span.setTag("name", name);
             nameIndex.deleteMappingFor(name)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(v -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         serverResponse.send();
                         span.finish();
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.deleteMappingFor(name)");
                             LOG.error(String.format("While serving deleteNameToIdMapping for name: %s", name), throwable);
                             serverResponse.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(throwable.getMessage());

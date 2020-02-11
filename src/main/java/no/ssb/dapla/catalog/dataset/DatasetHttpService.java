@@ -18,6 +18,8 @@ import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.auth.dataset.protobuf.Role;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
+import no.ssb.helidon.application.TracerAndSpan;
+import no.ssb.helidon.application.Tracing;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +56,8 @@ public class DatasetHttpService implements Service {
     }
 
     void read(ServerRequest request, ServerResponse response) {
-        Span span = spanFromHttp(request, "read-dataset");
+        TracerAndSpan tracerAndSpan = spanFromHttp(request, "read-dataset");
+        Span span = tracerAndSpan.span();
         try {
             String datasetId = request.path().param("datasetId");
             span.setTag("datasetId", datasetId);
@@ -64,6 +67,7 @@ public class DatasetHttpService implements Service {
             }
             future
                     .thenAccept(dataset -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         if (dataset == null) {
                             response.status(Http.Status.NOT_FOUND_404).send();
                         } else {
@@ -75,6 +79,7 @@ public class DatasetHttpService implements Service {
                     })
                     .exceptionally(t -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, t, "error in repository.get(datasetId)");
                             LOG.error(String.format("repository.get(datasetId): datasetId='%s'", datasetId), t);
                             response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
@@ -95,7 +100,8 @@ public class DatasetHttpService implements Service {
     }
 
     void write(ServerRequest request, ServerResponse response, Dataset dataset) {
-        Span span = spanFromHttp(request, "write-dataset");
+        TracerAndSpan tracerAndSpan = spanFromHttp(request, "write-dataset");
+        Span span = tracerAndSpan.span();
         try {
             traceInputMessage(span, dataset);
             String datasetId = request.path().param("datasetId");
@@ -134,6 +140,7 @@ public class DatasetHttpService implements Service {
                 @Override
                 public void onSuccess(@Nullable AccessCheckResponse result) {
                     try {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         if (result != null && result.getAllowed()) {
                             CompletableFuture<Void> future = repository.create(dataset);
                             if (!request.queryParams().first("notimeout").isPresent()) {
@@ -141,12 +148,14 @@ public class DatasetHttpService implements Service {
                             }
                             future
                                     .thenRun(() -> {
+                                        Tracing.restoreTracingContext(tracerAndSpan);
                                         response.headers().add("Location", "/dataset/" + datasetId);
                                         response.status(Http.Status.CREATED_201).send();
                                         span.finish();
                                     })
                                     .exceptionally(t -> {
                                         try {
+                                            Tracing.restoreTracingContext(tracerAndSpan);
                                             logError(span, t, "error in repository.create(dataset)");
                                             LOG.error(String.format("error in repository.create(dataset): dataset=%s", dataset.toString()), t);
                                             response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
@@ -168,6 +177,7 @@ public class DatasetHttpService implements Service {
                 @Override
                 public void onFailure(Throwable t) {
                     try {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         logError(span, t, "authService.hasAccess() : onFailure()");
                         LOG.error("authService.hasAccess() threw exception", t);
                         response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
@@ -188,7 +198,8 @@ public class DatasetHttpService implements Service {
     }
 
     void delete(ServerRequest request, ServerResponse response) {
-        Span span = spanFromHttp(request, "delete-dataset");
+        TracerAndSpan tracerAndSpan = spanFromHttp(request, "delete-dataset");
+        Span span = tracerAndSpan.span();
         try {
             String datasetId = request.path().param("datasetId");
             span.setTag("datasetId", datasetId);
@@ -198,11 +209,13 @@ public class DatasetHttpService implements Service {
             }
             future
                     .thenRun(() -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         response.send();
                         span.finish();
                     })
                     .exceptionally(t -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, t, "error in repository.delete(datasetId)");
                             LOG.error(String.format("repository.delete(datasetId): datasetId='%s'", datasetId), t);
                             response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
