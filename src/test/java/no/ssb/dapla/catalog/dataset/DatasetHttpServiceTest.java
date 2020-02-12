@@ -20,12 +20,13 @@ import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
 import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import no.ssb.dapla.catalog.protobuf.NameAndIdEntry;
-import no.ssb.dapla.catalog.protobuf.PseudoConfigItem;
-import no.ssb.dapla.catalog.protobuf.PseudoConfigItemOrBuilder;
+import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.SecretPseudoConfigItem;
 import no.ssb.dapla.catalog.protobuf.UnmapNameRequest;
 import no.ssb.dapla.catalog.protobuf.UnmapNameResponse;
+import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
 import no.ssb.testing.helidon.GrpcMockRegistry;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
@@ -178,7 +179,7 @@ class DatasetHttpServiceTest {
                 .setId(DatasetId.newBuilder().setId("1").build())
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.OUTPUT)
-                .addPseudoConfig(PseudoConfigItem.newBuilder().setCol("col1").setPseudoFunc("someFunc(param1)"))
+                .setPseudoConfig(dummyPseudoConfig())
                 .addLocations("f1")
                 .build();
         repositoryCreate(dataset);
@@ -188,7 +189,7 @@ class DatasetHttpServiceTest {
                         .setId(DatasetId.newBuilder().setId("2").build())
                         .setValuation(Dataset.Valuation.SENSITIVE)
                         .setState(Dataset.DatasetState.RAW)
-                        .addPseudoConfig(PseudoConfigItem.newBuilder().setCol("col1").setPseudoFunc("someFunc(param1)"))
+                        .setPseudoConfig(dummyPseudoConfig())
                         .addLocations("file")
                         .addLocations("file2")
                         .build()
@@ -208,7 +209,7 @@ class DatasetHttpServiceTest {
                 .setId(DatasetId.newBuilder().setId("a_dataset").build())
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
-                .addPseudoConfig(PseudoConfigItem.newBuilder().setCol("col1").setPseudoFunc("someFunc(param1)"))
+                .setPseudoConfig(dummyPseudoConfig())
                 .build();
         repositoryCreate(old);
 
@@ -249,7 +250,7 @@ class DatasetHttpServiceTest {
                 .setId(DatasetId.newBuilder().setId("dataset_from_before_timestamp").build())
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.PRODUCT)
-                .addPseudoConfig(PseudoConfigItem.newBuilder().setCol("col1").setPseudoFunc("someFunc(param1)"))
+                .setPseudoConfig(dummyPseudoConfig())
                 .addLocations("some_file")
                 .build();
         repositoryCreate(dataset);
@@ -277,25 +278,31 @@ class DatasetHttpServiceTest {
         delete("does_not_exist");
     }
 
-    Dataset createDataset(String datasetId, Dataset.DatasetState datasetState, Dataset.Valuation datasetValuation, PseudoConfigItem pseudoConfig, String location) {
+    Dataset createDataset(String datasetId, Dataset.DatasetState datasetState, Dataset.Valuation datasetValuation, PseudoConfig pseudoConfig, String location) {
         Dataset dataset = Dataset.newBuilder()
                 .setId(DatasetId.newBuilder().setId(datasetId).build())
                 .setState(datasetState)
                 .setValuation(datasetValuation)
-                .addPseudoConfig(pseudoConfig)
+                .setPseudoConfig(pseudoConfig)
                 .addLocations(location)
                 .build();
         repositoryCreate(dataset);
         return dataset;
     }
 
-    PseudoConfigItem dummyPseudoConfigItem() {
-        return PseudoConfigItem.newBuilder().setCol("col1").setPseudoFunc("someFunc1(param1)").build();
+    static PseudoConfig dummyPseudoConfig() {
+        return PseudoConfig.newBuilder()
+          .addVars(VarPseudoConfigItem.newBuilder().setVar("var1").setPseudoFunc("someFunc1(param1,keyId1)"))
+          .addVars(VarPseudoConfigItem.newBuilder().setVar("var2").setPseudoFunc("someFunc2(keyId2)"))
+          .addVars(VarPseudoConfigItem.newBuilder().setVar("var3").setPseudoFunc("someFunc3(keyId1)"))
+          .addSecrets(SecretPseudoConfigItem.newBuilder().setId ("keyId1"))
+          .addSecrets(SecretPseudoConfigItem.newBuilder().setId ("keyId2"))
+          .build();
     }
 
     @Test
     void thatGetWorks() {
-        Dataset expectedDataset = createDataset("1", Dataset.DatasetState.PRODUCT, Dataset.Valuation.INTERNAL, dummyPseudoConfigItem(), "f1");
+        Dataset expectedDataset = createDataset("1", Dataset.DatasetState.PRODUCT, Dataset.Valuation.INTERNAL, dummyPseudoConfig(), "f1");
         Dataset dataset = testClient.get("/dataset/1", Dataset.class).expect200Ok().body();
         assertEquals(expectedDataset, dataset);
     }
@@ -307,7 +314,7 @@ class DatasetHttpServiceTest {
 
     @Test
     void thatPutWorksWhenUserHasCreateAccess() {
-        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, dummyPseudoConfigItem(), "f2");
+        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, dummyPseudoConfig(), "f2");
         ResponseHelper<String> helper = testClient.put("/dataset/2?userId=a-user", expectedDataset).expect201Created();
         assertEquals("/dataset/2", helper.response().headers().firstValue("Location").orElseThrow());
         Dataset dataset = repositoryGet("2");
@@ -316,7 +323,7 @@ class DatasetHttpServiceTest {
 
     @Test
     void thatPutFailsWhenUserHasNoCreateAccess() {
-        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, dummyPseudoConfigItem(), "f2");
+        Dataset expectedDataset = createDataset("2", Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, dummyPseudoConfig(), "f2");
         testClient.put("/dataset/2?userId=b-user", expectedDataset).expect403Forbidden();
     }
 
@@ -326,7 +333,7 @@ class DatasetHttpServiceTest {
                 .setId(DatasetId.newBuilder().setId("an_id").build())
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.PRODUCT)
-                .addPseudoConfig(dummyPseudoConfigItem())
+                .setPseudoConfig(dummyPseudoConfig())
                 .addLocations("f")
                 .build();
         testClient.put("/dataset/a_different_id", ds).expect400BadRequest();
@@ -338,7 +345,7 @@ class DatasetHttpServiceTest {
                 .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
                 .setValuation(Dataset.Valuation.SENSITIVE)
                 .setState(Dataset.DatasetState.OUTPUT)
-                .addPseudoConfig(dummyPseudoConfigItem())
+                .setPseudoConfig(dummyPseudoConfig())
                 .addLocations("file_location")
                 .build();
         save(ds1, "a-user");
@@ -349,7 +356,7 @@ class DatasetHttpServiceTest {
                 .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
-                .addPseudoConfig(dummyPseudoConfigItem())
+                .setPseudoConfig(dummyPseudoConfig())
                 .addLocations("file_location")
                 .addLocations("file_location_2")
                 .build();
@@ -364,7 +371,7 @@ class DatasetHttpServiceTest {
                 .setId(DatasetId.newBuilder().setId("dataset_to_create").build())
                 .setValuation(Dataset.Valuation.SENSITIVE)
                 .setState(Dataset.DatasetState.OUTPUT)
-                .addPseudoConfig(dummyPseudoConfigItem())
+                .setPseudoConfig(dummyPseudoConfig())
                 .addLocations("file_location")
                 .build();
 
