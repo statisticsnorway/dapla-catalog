@@ -1,7 +1,5 @@
 package no.ssb.dapla.catalog;
 
-import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient;
-import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
@@ -18,18 +16,22 @@ import io.helidon.webserver.WebTracingConfig;
 import io.helidon.webserver.accesslog.AccessLogSupport;
 import io.opentracing.Tracer;
 import io.opentracing.contrib.grpc.OperationNameConstructor;
+import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.Vertx;
+import io.vertx.reactivex.ext.asyncsql.PostgreSQLClient;
+import io.vertx.reactivex.ext.sql.SQLClient;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.dataset.CatalogGrpcService;
-import no.ssb.dapla.catalog.dataset.DatasetHttpService;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
-import no.ssb.dapla.catalog.dataset.NameHttpService;
-import no.ssb.dapla.catalog.dataset.NameIndex;
-import no.ssb.dapla.catalog.dataset.PrefixHttpService;
+import no.ssb.dapla.catalog.health.Health;
+import no.ssb.dapla.catalog.health.HealthAwareSQLClient;
+import no.ssb.dapla.catalog.health.ReadinessSample;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.application.HelidonApplication;
 import no.ssb.helidon.application.HelidonGrpcWebTranscoding;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
+import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Application extends DefaultHelidonApplication {
 
@@ -65,24 +68,25 @@ public class Application extends DefaultHelidonApplication {
     Application(Config config, Tracer tracer, AuthServiceGrpc.AuthServiceFutureStub authService) {
         put(Config.class, config);
 
-        BigtableTableAdminClient bigtableTableAdminClient = BigtableInitializer.createBigtableAdminClient(config.get("bigtable"));
-        put(BigtableTableAdminClient.class, bigtableTableAdminClient);
+        AtomicReference<ReadinessSample> lastReadySample = new AtomicReference<>(new ReadinessSample(false, System.currentTimeMillis()));
 
-        BigtableInitializer.createBigtableSchemaIfNotExists(config.get("bigtable"), bigtableTableAdminClient);
+        // reactive postgres client
+        Vertx vertx = Vertx.vertx(); // create vertx instance to handle io of sql-client
+        SQLClient sqlClient = new HealthAwareSQLClient(initReactiveSqlClient(config.get("pgpool"), vertx), lastReadySample);
 
-        BigtableDataClient dataClient = BigtableInitializer.createBigtableDataClient(config.get("bigtable"));
-        put(BigtableDataClient.class, dataClient);
+        // initialize health, including a database connectivity wait-loop
+        Health health = new Health(config, sqlClient, lastReadySample, () -> get(WebServer.class));
 
-        DatasetRepository repository = new DatasetRepository(dataClient);
+        // schema migration using flyway and jdbc
+        migrateDatabaseSchema(config.get("flyway"));
+
+        DatasetRepository repository = new DatasetRepository(sqlClient);
         put(DatasetRepository.class, repository);
-
-        NameIndex nameIndex = new NameIndex(dataClient);
-        put(NameIndex.class, nameIndex);
 
         // dataset-access grpc client
         put(AuthServiceGrpc.AuthServiceFutureStub.class, authService);
 
-        CatalogGrpcService dataSetGrpcService = new CatalogGrpcService(repository, nameIndex, authService);
+        CatalogGrpcService dataSetGrpcService = new CatalogGrpcService(repository, authService);
         put(CatalogGrpcService.class, dataSetGrpcService);
 
         GrpcServer grpcServer = GrpcServer.create(
@@ -109,23 +113,12 @@ public class Application extends DefaultHelidonApplication {
         );
         put(GrpcServer.class, grpcServer);
 
-        DatasetHttpService dataSetHttpService = new DatasetHttpService(repository, nameIndex, authService);
-        put(DatasetHttpService.class, dataSetHttpService);
-
-        NameHttpService nameHttpService = new NameHttpService(nameIndex);
-        put(NameHttpService.class, nameHttpService);
-
-        PrefixHttpService prefixHttpService = new PrefixHttpService(nameIndex);
-        put(PrefixHttpService.class, prefixHttpService);
-
         Routing routing = Routing.builder()
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
                 .register(WebTracingConfig.create(config.get("tracing")))
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
-                .register("/dataset", dataSetHttpService)
-                .register("/name", nameHttpService)
-                .register("/prefix", prefixHttpService)
+                .register(health)
                 .register("/rpc", new HelidonGrpcWebTranscoding(
                         () -> ManagedChannelBuilder
                                 .forAddress("localhost", Optional.of(grpcServer)
@@ -147,10 +140,32 @@ public class Application extends DefaultHelidonApplication {
         put(WebServer.class, webServer);
     }
 
+    private void migrateDatabaseSchema(Config flywayConfig) {
+        Flyway flyway = Flyway.configure()
+                .dataSource(
+                        flywayConfig.get("url").asString().orElse("jdbc:postgresql://localhost:15432/rdc"),
+                        flywayConfig.get("user").asString().orElse("rdc"),
+                        flywayConfig.get("password").asString().orElse("rdc")
+                )
+                .load();
+        flyway.migrate();
+    }
+
+    private SQLClient initReactiveSqlClient(Config config, Vertx vertx) {
+        Config connectConfig = config.get("connect-options");
+        JsonObject postgreSQLClientConfig = new JsonObject()
+                .put("host", connectConfig.get("host").asString().orElse("localhost"))
+                .put("port", connectConfig.get("port").asInt().orElse(15432))
+                .put("username", connectConfig.get("user").asString().orElse("rdc"))
+                .put("password", connectConfig.get("password").asString().orElse("rdc"))
+                .put("database", connectConfig.get("database").asString().orElse("rdc"));
+        SQLClient sqlClient = PostgreSQLClient.createShared(vertx, postgreSQLClientConfig);
+        return sqlClient;
+    }
+
     @Override
     public CompletionStage<HelidonApplication> stop() {
         return super.stop()
-                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableDataClient.class).close()), (app, v) -> this)
-                .thenCombine(CompletableFuture.runAsync(() -> get(BigtableTableAdminClient.class).close()), (app, v) -> this);
+                .thenCombine(CompletableFuture.runAsync(() -> get(SQLClient.class).close()), (a, v) -> this);
     }
 }

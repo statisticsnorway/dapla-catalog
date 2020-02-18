@@ -8,19 +8,27 @@ grpcserver:
   host: 0.0.0.0
   port: 10118
 
-bigtable:
-  generate-schema: true
-  emulator: true
-  host: localhost
-  port: 29035
-  project-id: my-project
-  instance-id: my-instance
-  credential-provider: default
-  credentials:
-    service-account:
-      path: /conf/dapla-catalog-bigtable-test.json
-    default:
-    compute-engine:
+pgpool:
+  connect-options:
+    port: 25432
+    host: localhost
+    database: catalog
+    user: catalog
+    password: catalog
+  pool-options:
+    max-size: 5
+
+flyway:
+  url: jdbc:postgresql://localhost:25432/catalog
+  user: catalog
+  password: catalog
+
+init:
+  db-connectivity-attempts: 120
+
+health:
+  readiness:
+    idle-timeout: 2000
 
 auth-service:
   host: localhost

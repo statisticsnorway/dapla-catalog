@@ -1,13 +1,26 @@
 grpcserver:
   port: 0
 
-bigtable:
-  emulator: true
-  generate-schema: true
-  host: localhost
-  port: 9035
-  project-id: my-project
-  instance-id: my-instance
-  table-id: dataset
-  column-family: document
-  credential-provider: default
+webserver:
+  port: 0
+
+pgpool:
+  connect-options:
+    port: 15432
+    host: localhost
+    database: catalog
+    user: catalog
+    password: catalog
+  pool-options:
+    max-size: 5
+
+init:
+  db-connectivity-attempts: 30
+
+flyway:
+  url: jdbc:postgresql://localhost:15432/catalog
+  user: catalog
+  password: catalog
+
+tracing:
+  enabled: false

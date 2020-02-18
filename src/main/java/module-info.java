@@ -14,13 +14,6 @@ module no.ssb.dapla.catalog {
     requires io.helidon.tracing;
     requires io.grpc;
 
-    requires com.google.api.apicommon;
-    requires google.cloud.bigtable;
-    requires gax;
-    requires com.google.auth;
-    requires com.google.auth.oauth2;
-    requires jdk.crypto.cryptoki; // required by bigtable apis
-
     requires com.google.common;
     requires no.ssb.dapla.catalog.protobuf;
     requires no.ssb.dapla.auth.dataset.protobuf;
@@ -52,6 +45,13 @@ module no.ssb.dapla.catalog {
 
     requires org.checkerframework.checker.qual;
     requires jaeger.core;
+    requires vertx.core;
+    requires org.flywaydb.core;
+    requires vertx.rx.java2;
+    requires vertx.sql.common;
+    requires io.reactivex.rxjava2;
+
+    opens db.migration; // flyway needs this to read migration files
 
     provides no.ssb.helidon.application.HelidonApplicationBuilder with no.ssb.dapla.catalog.ApplicationBuilder;
 }
