@@ -106,10 +106,14 @@ steps:
       - sonarqube
 
 services:
-  - name: bigtable
-    image: statisticsnorway/bigtable-emulator
+  - name: postgres
+    image: postgres:12-alpine
     ports:
-    - 9035
+      - 5432
+    environment:
+      POSTGRES_PASSWORD: catalog
+      POSTGRES_USER: catalog
+      POSTGRES_DB: catalog
 
 ---
 kind: secret
