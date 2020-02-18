@@ -6,7 +6,7 @@ webserver:
 
 pgpool:
   connect-options:
-    port: 15432
+    port: 10112
     host: localhost
     database: catalog
     user: catalog
@@ -18,7 +18,7 @@ init:
   db-connectivity-attempts: 30
 
 flyway:
-  url: jdbc:postgresql://localhost:15432/catalog
+  url: jdbc:postgresql://localhost:10112/catalog
   user: catalog
   password: catalog
 
