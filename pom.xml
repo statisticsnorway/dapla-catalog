@@ -39,6 +39,7 @@
         <dependency>
             <groupId>no.ssb.dapla.catalog</groupId>
             <artifactId>dapla-catalog-protobuf</artifactId>
+            <version>0.3-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.dapla.auth.dataset</groupId>
@@ -46,8 +47,29 @@
             <version>0.1</version>
         </dependency>
         <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>google-cloud-bigtable</artifactId>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>6.2.3</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-sql-common</artifactId>
+            <version>3.8.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-rx-java2</artifactId>
+            <version>3.8.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-mysql-postgresql-client-jasync</artifactId>
+            <version>3.8.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.2.10</version>
         </dependency>
     </dependencies>
 

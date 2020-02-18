@@ -2,15 +2,21 @@ version: '3.7'
 
 services:
 
-  bigtable:
-    image: statisticsnorway/bigtable-emulator
+  postgres:
+    image: postgres:12-alpine
     ports:
-    - 9035:9035
+      - 15432:5432
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
 
   catalog:
     image: dapla-catalog:dev
     ports:
-    - 8070:8070
-    - 1408:1408
+      - 10110:10110
+      - 10118:10118
     environment:
-      BIGTABLE_HOST: bigtable
+      PGPOOL_CONNECT_dash_OPTIONS_HOST: postgres
+      PGPOOL_CONNECT_dash_OPTIONS_PORT: 5432
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/catalog
+    depends_on:
+      - postgres

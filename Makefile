@@ -3,13 +3,13 @@ SHELL:=/usr/bin/env bash
 .PHONY: default
 default: | help
 
-.PHONY: start-bigtable
-start-bigtable: ## Start bigtable
-	docker-compose up -d --build bigtable
+.PHONY: start-db
+start-db: ## Start postgres
+	docker-compose up -d --build postgres
 
-.PHONY: stop-bigtable
-stop-bigtable: ## Stop bigtable
-	docker-compose rm --force --stop bigtable
+.PHONY: stop-db
+stop-db: ## Stop postgres
+	docker-compose rm --force --stop postgres
 
 .PHONY: help
 help:
