@@ -34,7 +34,7 @@ class DatasetRepositoryTest {
                 .setId(DatasetId.newBuilder().setPath("to_be_deleted").build())
                 .setState(DatasetState.PRODUCT)
                 .setValuation(Valuation.INTERNAL)
-                .setPhysicalLocation("f1")
+                .setParentUri("f1")
                 .build();
         repository.create(ds1).blockingGet();
 
@@ -42,7 +42,7 @@ class DatasetRepositoryTest {
                 .setId(DatasetId.newBuilder().setPath("to_be_deleted").build())
                 .setState(DatasetState.PRODUCT)
                 .setValuation(Valuation.OPEN)
-                .setPhysicalLocation("f1")
+                .setParentUri("f1")
                 .build();
         repository.create(ds2).blockingGet();
 
@@ -50,7 +50,7 @@ class DatasetRepositoryTest {
                 .setId(DatasetId.newBuilder().setPath("should_not_be_deleted").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.SENSITIVE)
-                .setPhysicalLocation("f1")
+                .setParentUri("f1")
                 .build();
         repository.create(ds3).blockingGet();
 
@@ -67,7 +67,7 @@ class DatasetRepositoryTest {
                 .setId(DatasetId.newBuilder().setPath("1").build())
                 .setState(DatasetState.RAW)
                 .setValuation(Valuation.SHIELDED)
-                .setPhysicalLocation("gcs://some-file")
+                .setParentUri("gcs://some-file")
                 .build();
         repository.create(ds1).blockingGet();
 
@@ -81,7 +81,7 @@ class DatasetRepositoryTest {
                 .setId(DatasetId.newBuilder().setPath("1").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.INTERNAL)
-                .setPhysicalLocation("gcs://another-file")
+                .setParentUri("gcs://another-file")
                 .build();
         repository.create(ds2).blockingGet();
 
@@ -95,21 +95,21 @@ class DatasetRepositoryTest {
                 .setId(DatasetId.newBuilder().setPath("1").build())
                 .setState(DatasetState.RAW)
                 .setValuation(Valuation.SHIELDED)
-                .setPhysicalLocation("gcs://some-file")
+                .setParentUri("gcs://some-file")
                 .build();
 
         Dataset ds2 = Dataset.newBuilder()
                 .setId(DatasetId.newBuilder().setPath("1").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.INTERNAL)
-                .setPhysicalLocation("gcs://another-file")
+                .setParentUri("gcs://another-file")
                 .build();
 
         Dataset ds3 = Dataset.newBuilder()
                 .setId(DatasetId.newBuilder().setPath("2").build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.INTERNAL)
-                .setPhysicalLocation("gcs://a-file")
+                .setParentUri("gcs://a-file")
                 .build();
 
         DatasetRepository repository = application.get(DatasetRepository.class);

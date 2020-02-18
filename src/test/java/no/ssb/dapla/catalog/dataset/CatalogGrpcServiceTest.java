@@ -122,7 +122,7 @@ class CatalogGrpcServiceTest {
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.OUTPUT)
                 .setPseudoConfig(dummyPseudoConfig())
-                .setPhysicalLocation("f1")
+                .setParentUri("f1")
                 .build();
         repositoryCreate(dataset);
 
@@ -132,7 +132,7 @@ class CatalogGrpcServiceTest {
                         .setValuation(Dataset.Valuation.SENSITIVE)
                         .setState(Dataset.DatasetState.RAW)
                         .setPseudoConfig(dummyPseudoConfig())
-                        .setPhysicalLocation("file")
+                        .setParentUri("file")
                         .build()
         );
 
@@ -165,7 +165,7 @@ class CatalogGrpcServiceTest {
                         .setId(DatasetId.newBuilder().setPath("a_dataset").build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
-                        .setPhysicalLocation("a_location")
+                        .setParentUri("a_location")
                         .build()
         );
 
@@ -179,7 +179,7 @@ class CatalogGrpcServiceTest {
                         .setId(DatasetId.newBuilder().setPath("dataset_from_after_timestamp").build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
-                        .setPhysicalLocation("a_location")
+                        .setParentUri("a_location")
                         .build()
         );
         assertThat(get("dataset_from_after_timestamp", 100L).hasDataset()).isFalse();
@@ -192,7 +192,7 @@ class CatalogGrpcServiceTest {
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.PRODUCT)
                 .setPseudoConfig(dummyPseudoConfig())
-                .setPhysicalLocation("some_file")
+                .setParentUri("some_file")
                 .build();
         repositoryCreate(dataset);
 
@@ -207,7 +207,7 @@ class CatalogGrpcServiceTest {
                 .setId(DatasetId.newBuilder().setPath("dataset_to_delete").build())
                 .setValuation(Dataset.Valuation.OPEN)
                 .setState(Dataset.DatasetState.RAW)
-                .setPhysicalLocation("f")
+                .setParentUri("f")
                 .build();
         repositoryCreate(dataset);
         delete(dataset.getId().getPath());
@@ -225,7 +225,7 @@ class CatalogGrpcServiceTest {
                 .setState(datasetState)
                 .setValuation(datasetValuation)
                 .setPseudoConfig(pseudoConfig)
-                .setPhysicalLocation(location)
+                .setParentUri(location)
                 .build();
         repositoryCreate(dataset);
         return dataset;
@@ -248,7 +248,7 @@ class CatalogGrpcServiceTest {
                 .setValuation(Dataset.Valuation.SENSITIVE)
                 .setState(Dataset.DatasetState.OUTPUT)
                 .setPseudoConfig(dummyPseudoConfig())
-                .setPhysicalLocation("file_location")
+                .setParentUri("file_location")
                 .build();
         save(ds1, "a-user");
 
@@ -259,7 +259,7 @@ class CatalogGrpcServiceTest {
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
                 .setPseudoConfig(dummyPseudoConfig())
-                .setPhysicalLocation("file_location_2")
+                .setParentUri("file_location_2")
                 .build();
         save(ds2, "a-user");
 
@@ -273,7 +273,7 @@ class CatalogGrpcServiceTest {
                 .setValuation(Dataset.Valuation.SENSITIVE)
                 .setState(Dataset.DatasetState.OUTPUT)
                 .setPseudoConfig(dummyPseudoConfig())
-                .setPhysicalLocation("file_location")
+                .setParentUri("file_location")
                 .build();
 
         Assertions.assertThrows(StatusRuntimeException.class, () -> {
