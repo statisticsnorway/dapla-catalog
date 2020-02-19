@@ -15,6 +15,7 @@ FROM alpine:latest
 # Resources from build image
 #
 COPY --from=build /linked /jdk/
+COPY run.sh /app/
 COPY target/libs /app/lib/
 COPY target/catalog-service*.jar /app/lib/
 COPY target/classes/logback.xml /app/conf/
@@ -28,4 +29,4 @@ WORKDIR /app
 EXPOSE 10110
 EXPOSE 10118
 
-CMD ["java", "--add-exports=io.grpc/io.opencensus.common=gax", "--add-exports=io.grpc/io.opencensus.trace=gax", "--add-exports=io.grpc/io.opencensus.trace=com.google.api.client", "--add-exports=io.grpc/io.opencensus.trace.propagation=com.google.api.client", "--add-exports=io.grpc/io.opencensus.trace.export=com.google.api.client", "--add-exports=io.grpc/io.opencensus.common=com.google.api.client", "--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", "--add-exports=io.grpc/io.opencensus.trace=opencensus.contrib.http.util", "-p", "/app/lib", "-m", "no.ssb.dapla.catalog/no.ssb.dapla.catalog.Application"]
+CMD ["./run.sh"]
