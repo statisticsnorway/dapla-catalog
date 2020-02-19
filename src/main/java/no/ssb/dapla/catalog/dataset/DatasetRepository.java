@@ -47,11 +47,7 @@ public class DatasetRepository {
      * Get the latest dataset with the given path
      */
     public Maybe<Dataset> get(String path) {
-        JsonArray params = new JsonArray()
-                .add(path);
-        return client
-                .rxQuerySingleWithParams("SELECT document FROM Dataset WHERE path = ? AND version <= LOCALTIMESTAMP ORDER BY version DESC LIMIT 1", params)
-                .map(jsonArray -> ProtobufJsonUtils.toPojo(jsonArray.getString(0), Dataset.class));
+        return get(path, System.currentTimeMillis());
     }
 
     /**
