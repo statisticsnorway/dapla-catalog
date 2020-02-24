@@ -1,5 +1,10 @@
 package no.ssb.dapla.catalog;
 
+import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedTransportChannelProvider;
+import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
@@ -23,6 +28,7 @@ import io.vertx.reactivex.ext.sql.SQLClient;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.dataset.CatalogGrpcService;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
+import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegration;
 import no.ssb.dapla.catalog.health.Health;
 import no.ssb.dapla.catalog.health.HealthAwareSQLClient;
 import no.ssb.dapla.catalog.health.ReadinessSample;
@@ -82,6 +88,18 @@ public class Application extends DefaultHelidonApplication {
 
         DatasetRepository repository = new DatasetRepository(sqlClient);
         put(DatasetRepository.class, repository);
+
+        String hostport = System.getenv("PUBSUB_EMULATOR_HOST");
+        if (hostport == null) {
+            hostport = "localhost:8538";
+        }
+
+        ManagedChannel pubSubChannel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
+        FixedTransportChannelProvider channelProvider = FixedTransportChannelProvider.create(GrpcTransportChannel.create(pubSubChannel));
+        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+
+        DatasetUpstreamGooglePubSubIntegration datasetUpstreamSubscriber = new DatasetUpstreamGooglePubSubIntegration(config.get("pubsub.upstream"), channelProvider, credentialsProvider, repository);
+        put(DatasetUpstreamGooglePubSubIntegration.class, datasetUpstreamSubscriber);
 
         // dataset-access grpc client
         put(AuthServiceGrpc.AuthServiceFutureStub.class, authService);
@@ -166,6 +184,7 @@ public class Application extends DefaultHelidonApplication {
     @Override
     public CompletionStage<HelidonApplication> stop() {
         return super.stop()
-                .thenCombine(CompletableFuture.runAsync(() -> get(SQLClient.class).close()), (a, v) -> this);
+                .thenCombine(CompletableFuture.runAsync(() -> get(SQLClient.class).close()), (a, v) -> this)
+                .thenCombine(CompletableFuture.runAsync(() -> get(DatasetUpstreamGooglePubSubIntegration.class).close()), (a, v) -> this);
     }
 }

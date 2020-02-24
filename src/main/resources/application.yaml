@@ -50,3 +50,9 @@ tracing:
       enabled: false
     - path: "/health"
       enabled: false
+
+pubsub:
+  upstream:
+    projectId: dapla
+    topic: catalog-1
+    subscription: catalog-dev

@@ -51,6 +51,12 @@ module no.ssb.dapla.catalog {
     requires vertx.sql.common;
     requires io.reactivex.rxjava2;
 
+    requires gax;
+    requires com.google.api.apicommon;
+    requires google.cloud.pubsub;
+    requires proto.google.cloud.pubsub.v1;
+    requires no.ssb.dapla.dataset.api;
+
     opens db.migration; // flyway needs this to read migration files
 
     provides no.ssb.helidon.application.HelidonApplicationBuilder with no.ssb.dapla.catalog.ApplicationBuilder;
