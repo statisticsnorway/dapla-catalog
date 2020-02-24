@@ -47,6 +47,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.util.Optional.ofNullable;
+
 public class Application extends DefaultHelidonApplication {
 
     private static final Logger LOG;
@@ -94,12 +96,14 @@ public class Application extends DefaultHelidonApplication {
             hostport = "localhost:8538";
         }
 
-        ManagedChannel pubSubChannel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
-        FixedTransportChannelProvider channelProvider = FixedTransportChannelProvider.create(GrpcTransportChannel.create(pubSubChannel));
-        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+        if (config.get("pubsub.enabled").asBoolean().orElse(false)) {
+            ManagedChannel pubSubChannel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
+            FixedTransportChannelProvider channelProvider = FixedTransportChannelProvider.create(GrpcTransportChannel.create(pubSubChannel));
+            CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
 
-        DatasetUpstreamGooglePubSubIntegration datasetUpstreamSubscriber = new DatasetUpstreamGooglePubSubIntegration(config.get("pubsub.upstream"), channelProvider, credentialsProvider, repository);
-        put(DatasetUpstreamGooglePubSubIntegration.class, datasetUpstreamSubscriber);
+            DatasetUpstreamGooglePubSubIntegration datasetUpstreamSubscriber = new DatasetUpstreamGooglePubSubIntegration(config.get("pubsub.upstream"), channelProvider, credentialsProvider, repository);
+            put(DatasetUpstreamGooglePubSubIntegration.class, datasetUpstreamSubscriber);
+        }
 
         // dataset-access grpc client
         put(AuthServiceGrpc.AuthServiceFutureStub.class, authService);
@@ -185,6 +189,6 @@ public class Application extends DefaultHelidonApplication {
     public CompletionStage<HelidonApplication> stop() {
         return super.stop()
                 .thenCombine(CompletableFuture.runAsync(() -> get(SQLClient.class).close()), (a, v) -> this)
-                .thenCombine(CompletableFuture.runAsync(() -> get(DatasetUpstreamGooglePubSubIntegration.class).close()), (a, v) -> this);
+                .thenCombine(CompletableFuture.runAsync(() -> ofNullable(get(DatasetUpstreamGooglePubSubIntegration.class)).ifPresent(DatasetUpstreamGooglePubSubIntegration::close)), (a, v) -> this);
     }
 }
