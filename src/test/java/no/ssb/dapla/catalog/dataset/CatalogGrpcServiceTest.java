@@ -19,7 +19,6 @@ import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
 import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.SecretPseudoConfigItem;
 import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
 import no.ssb.testing.helidon.GrpcMockRegistry;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
@@ -236,8 +235,6 @@ class CatalogGrpcServiceTest {
                 .addVars(VarPseudoConfigItem.newBuilder().setVar("var1").setPseudoFunc("someFunc1(param1,keyId1)"))
                 .addVars(VarPseudoConfigItem.newBuilder().setVar("var2").setPseudoFunc("someFunc2(keyId2)"))
                 .addVars(VarPseudoConfigItem.newBuilder().setVar("var3").setPseudoFunc("someFunc3(keyId1)"))
-                .addSecrets(SecretPseudoConfigItem.newBuilder().setId("keyId1"))
-                .addSecrets(SecretPseudoConfigItem.newBuilder().setId("keyId2"))
                 .build();
     }
 
