@@ -79,6 +79,11 @@
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-pubsub</artifactId>
         </dependency>
+        <dependency>
+            <groupId>no.ssb.pubsub</groupId>
+            <artifactId>google-pubsub-client</artifactId>
+            <version>0.4</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -56,6 +56,10 @@ module no.ssb.dapla.catalog {
     requires google.cloud.pubsub;
     requires proto.google.cloud.pubsub.v1;
     requires no.ssb.dapla.dataset.api;
+    requires com.google.auth.oauth2;
+    requires com.google.auth;
+
+    requires no.ssb.gcloud.pubsub;
 
     opens db.migration; // flyway needs this to read migration files
 

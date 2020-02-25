@@ -1,10 +1,5 @@
 package no.ssb.dapla.catalog;
 
-import com.google.api.gax.core.CredentialsProvider;
-import com.google.api.gax.core.NoCredentialsProvider;
-import com.google.api.gax.grpc.GrpcTransportChannel;
-import com.google.api.gax.rpc.FixedTransportChannelProvider;
-import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
@@ -37,6 +32,9 @@ import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.application.HelidonApplication;
 import no.ssb.helidon.application.HelidonGrpcWebTranscoding;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
+import no.ssb.pubsub.EmulatorPubSub;
+import no.ssb.pubsub.PubSub;
+import no.ssb.pubsub.RealPubSub;
 import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,17 +89,11 @@ public class Application extends DefaultHelidonApplication {
         DatasetRepository repository = new DatasetRepository(sqlClient);
         put(DatasetRepository.class, repository);
 
-        String hostport = System.getenv("PUBSUB_EMULATOR_HOST");
-        if (hostport == null) {
-            hostport = "localhost:8538";
-        }
-
         if (config.get("pubsub.enabled").asBoolean().orElse(false)) {
-            ManagedChannel pubSubChannel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
-            FixedTransportChannelProvider channelProvider = FixedTransportChannelProvider.create(GrpcTransportChannel.create(pubSubChannel));
-            CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+            PubSub pubSub = createPubSub(config.get("pubsub"));
+            put(PubSub.class, pubSub);
 
-            DatasetUpstreamGooglePubSubIntegration datasetUpstreamSubscriber = new DatasetUpstreamGooglePubSubIntegration(config.get("pubsub.upstream"), channelProvider, credentialsProvider, repository);
+            DatasetUpstreamGooglePubSubIntegration datasetUpstreamSubscriber = new DatasetUpstreamGooglePubSubIntegration(config.get("pubsub.upstream"), pubSub, repository);
             put(DatasetUpstreamGooglePubSubIntegration.class, datasetUpstreamSubscriber);
         }
 
@@ -173,6 +165,29 @@ public class Application extends DefaultHelidonApplication {
         flyway.migrate();
     }
 
+    static PubSub createPubSub(Config config) {
+        boolean useEmulator = config.get("use-emulator").asBoolean().orElse(false);
+        if (useEmulator) {
+            Config emulatorConfig = config.get("emulator");
+            String host = emulatorConfig.get("host").asString().get();
+            int port = emulatorConfig.get("port").asInt().get();
+            return new EmulatorPubSub(host, port);
+        } else {
+            String configuredProviderChoice = config.get("credential-provider").asString().orElse("default");
+            if ("service-account".equalsIgnoreCase(configuredProviderChoice)) {
+                LOG.info("Running with the service-account google bigtable credentials provider");
+                String serviceAccountKeyPath = config.get("credentials.service-account.path").asString().orElse(null);
+                return RealPubSub.createWithServiceAccountKeyCredentials(serviceAccountKeyPath);
+            } else if ("compute-engine".equalsIgnoreCase(configuredProviderChoice)) {
+                LOG.info("Running with the compute-engine google bigtable credentials provider");
+                return RealPubSub.createWithComputeEngineCredentials();
+            } else { // default
+                LOG.info("Running with the default google bigtable credentials provider");
+                return RealPubSub.createWithDefaultCredentials();
+            }
+        }
+    }
+
     private SQLClient initReactiveSqlClient(Config config, Vertx vertx) {
         Config connectConfig = config.get("connect-options");
         JsonObject postgreSQLClientConfig = new JsonObject()
@@ -189,6 +204,7 @@ public class Application extends DefaultHelidonApplication {
     public CompletionStage<HelidonApplication> stop() {
         return super.stop()
                 .thenCombine(CompletableFuture.runAsync(() -> get(SQLClient.class).close()), (a, v) -> this)
-                .thenCombine(CompletableFuture.runAsync(() -> ofNullable(get(DatasetUpstreamGooglePubSubIntegration.class)).ifPresent(DatasetUpstreamGooglePubSubIntegration::close)), (a, v) -> this);
+                .thenCombine(CompletableFuture.runAsync(() -> ofNullable(get(DatasetUpstreamGooglePubSubIntegration.class)).ifPresent(DatasetUpstreamGooglePubSubIntegration::close)), (a, v) -> this)
+                .thenCombine(CompletableFuture.runAsync(() -> ofNullable(get(PubSub.class)).ifPresent(PubSub::close)), (a, v) -> this);
     }
 }

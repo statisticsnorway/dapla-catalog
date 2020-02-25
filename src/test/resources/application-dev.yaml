@@ -24,3 +24,6 @@ flyway:
 
 tracing:
   enabled: false
+
+pubsub:
+  enabled: false
