@@ -45,14 +45,22 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
         ProjectTopicName projectTopicName = ProjectTopicName.of(projectId, topicName);
         ProjectSubscriptionName projectSubscriptionName = ProjectSubscriptionName.of(projectId, subscriptionName);
 
+        LOG.debug("Creating topic admin client");
+
         try (TopicAdminClient topicAdminClient = pubSub.getTopicAdminClient()) {
+            LOG.debug("Using topic: ", projectTopicName.toString());
             if (!pubSub.topicExists(topicAdminClient, projectName, projectTopicName, 25)) {
+                LOG.debug("Creating topic.");
                 topicAdminClient.createTopic(projectTopicName);
             }
+            LOG.debug("Creating subscription admin client");
             try (SubscriptionAdminClient subscriptionAdminClient = pubSub.getSubscriptionAdminClient()) {
+                LOG.debug("Using subscription: {}", projectSubscriptionName.toString());
                 if (!pubSub.subscriptionExists(subscriptionAdminClient, projectName, projectSubscriptionName, 25)) {
+                    LOG.debug("Creating new subscription");
                     subscriptionAdminClient.createSubscription(projectSubscriptionName, projectTopicName, PushConfig.getDefaultInstance(), 10);
                 }
+                LOG.debug("Creating subscriber");
                 subscriber = pubSub.getSubscriber(projectSubscriptionName, this);
                 subscriber.addListener(
                         new Subscriber.Listener() {
@@ -61,7 +69,9 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
                             }
                         },
                         MoreExecutors.directExecutor());
+                LOG.debug("Subscriber async pull starting...");
                 subscriber.startAsync().awaitRunning();
+                LOG.debug("Subscriber async pull is now running.");
             }
         }
     }

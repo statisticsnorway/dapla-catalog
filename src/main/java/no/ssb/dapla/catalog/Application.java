@@ -90,11 +90,17 @@ public class Application extends DefaultHelidonApplication {
         put(DatasetRepository.class, repository);
 
         if (config.get("pubsub.enabled").asBoolean().orElse(false)) {
+            LOG.info("Running with PubSub enabled");
+
             PubSub pubSub = createPubSub(config.get("pubsub"));
             put(PubSub.class, pubSub);
 
+            LOG.info("Created PubSub of class type: " + pubSub.getClass().getName());
+
             DatasetUpstreamGooglePubSubIntegration datasetUpstreamSubscriber = new DatasetUpstreamGooglePubSubIntegration(config.get("pubsub.upstream"), pubSub, repository);
             put(DatasetUpstreamGooglePubSubIntegration.class, datasetUpstreamSubscriber);
+
+            LOG.info("Subscribed upstream");
         }
 
         // dataset-access grpc client
@@ -175,14 +181,14 @@ public class Application extends DefaultHelidonApplication {
         } else {
             String configuredProviderChoice = config.get("credential-provider").asString().orElse("default");
             if ("service-account".equalsIgnoreCase(configuredProviderChoice)) {
-                LOG.info("Running with the service-account google bigtable credentials provider");
+                LOG.info("Running with the service-account google credentials provider");
                 String serviceAccountKeyPath = config.get("credentials.service-account.path").asString().orElse(null);
                 return RealPubSub.createWithServiceAccountKeyCredentials(serviceAccountKeyPath);
             } else if ("compute-engine".equalsIgnoreCase(configuredProviderChoice)) {
-                LOG.info("Running with the compute-engine google bigtable credentials provider");
+                LOG.info("Running with the compute-engine google credentials provider");
                 return RealPubSub.createWithComputeEngineCredentials();
             } else { // default
-                LOG.info("Running with the default google bigtable credentials provider");
+                LOG.info("Running with the default google credentials provider");
                 return RealPubSub.createWithDefaultCredentials();
             }
         }
