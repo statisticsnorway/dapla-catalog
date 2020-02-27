@@ -181,14 +181,14 @@ public class Application extends DefaultHelidonApplication {
         } else {
             String configuredProviderChoice = config.get("credential-provider").asString().orElse("default");
             if ("service-account".equalsIgnoreCase(configuredProviderChoice)) {
-                LOG.info("Running with the service-account google credentials provider");
+                LOG.info("PubSub running with the service-account google credentials provider");
                 String serviceAccountKeyPath = config.get("credentials.service-account.path").asString().orElse(null);
                 return RealPubSub.createWithServiceAccountKeyCredentials(serviceAccountKeyPath);
             } else if ("compute-engine".equalsIgnoreCase(configuredProviderChoice)) {
-                LOG.info("Running with the compute-engine google credentials provider");
+                LOG.info("PubSub running with the compute-engine google credentials provider");
                 return RealPubSub.createWithComputeEngineCredentials();
             } else { // default
-                LOG.info("Running with the default google credentials provider");
+                LOG.info("PubSub running with the default google credentials provider");
                 return RealPubSub.createWithDefaultCredentials();
             }
         }
