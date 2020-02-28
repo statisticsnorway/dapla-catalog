@@ -7,11 +7,7 @@ import com.google.cloud.pubsub.v1.SubscriptionAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.pubsub.v1.ProjectName;
-import com.google.pubsub.v1.ProjectSubscriptionName;
-import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.PushConfig;
 import io.helidon.config.Config;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
@@ -19,6 +15,7 @@ import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.dataset.api.DatasetMeta;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.pubsub.PubSub;
+import no.ssb.pubsub.PubSubAdmin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,33 +36,25 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
         this.repository = repository;
 
         String projectId = pubSubUpstreamConfig.get("projectId").asString().get();
-        ProjectName projectName = ProjectName.of(projectId);
         String topicName = pubSubUpstreamConfig.get("topic").asString().get();
         String subscriptionName = pubSubUpstreamConfig.get("subscription").asString().get();
-        ProjectTopicName projectTopicName = ProjectTopicName.of(projectId, topicName);
-        ProjectSubscriptionName projectSubscriptionName = ProjectSubscriptionName.of(projectId, subscriptionName);
 
         LOG.info("Creating topic admin client");
 
         try (TopicAdminClient topicAdminClient = pubSub.getTopicAdminClient()) {
-            LOG.info("Using topic: {}", projectTopicName.toString());
-            if (!pubSub.topicExists(topicAdminClient, projectName, projectTopicName, 25)) {
-                LOG.info("Creating topic.");
-                topicAdminClient.createTopic(projectTopicName);
-            }
+            LOG.info("Using topic: {}", topicName);
+            PubSubAdmin.createTopicIfNotExists(topicAdminClient, projectId, topicName);
             LOG.info("Creating subscription admin client");
             try (SubscriptionAdminClient subscriptionAdminClient = pubSub.getSubscriptionAdminClient()) {
-                LOG.info("Using subscription: {}", projectSubscriptionName.toString());
-                if (!pubSub.subscriptionExists(subscriptionAdminClient, projectName, projectSubscriptionName, 25)) {
-                    LOG.info("Creating new subscription");
-                    subscriptionAdminClient.createSubscription(projectSubscriptionName, projectTopicName, PushConfig.getDefaultInstance(), 10);
-                }
+                LOG.info("Using subscription: {}", subscriptionName);
+                PubSubAdmin.createSubscriptionIfNotExists(subscriptionAdminClient, projectId, topicName, subscriptionName, 60);
+
                 LOG.info("Creating subscriber");
-                subscriber = pubSub.getSubscriber(projectSubscriptionName, this);
+                subscriber = pubSub.getSubscriber(projectId, subscriptionName, this);
                 subscriber.addListener(
                         new Subscriber.Listener() {
                             public void failed(Subscriber.State from, Throwable failure) {
-                                LOG.error(String.format("Error with subscriber on subscription '%s' and topic '%s'", projectSubscriptionName, projectTopicName), failure);
+                                LOG.error(String.format("Error with subscriber on subscription '%s' and topic '%s'", subscriptionName, topicName), failure);
                             }
                         },
                         MoreExecutors.directExecutor());
