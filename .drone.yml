@@ -60,7 +60,7 @@ steps:
         from_secret: gcr_credentials
     when:
       branch:
-        - master
+        - app-tracing-jaeger
       event:
         - push
     depends_on:
