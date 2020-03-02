@@ -40,7 +40,7 @@ tracing:
   sampler-type: const
   sampler-param: 1
   protocol: http
-  host: tracing.istio-system.svc.cluster.local
+  host: jaeger-collector.istio-system.svc.cluster.local
   port: 14268
   path: /api/traces
   paths:
