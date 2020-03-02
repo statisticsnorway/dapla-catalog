@@ -6,7 +6,7 @@ import io.grpc.stub.StreamObserver;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.catalog.Application;
+import no.ssb.dapla.catalog.CatalogApplication;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
@@ -42,7 +42,7 @@ class CatalogGrpcServiceTest {
     private static final Set<String> ACCESS = Set.of("a-user");
 
     @Inject
-    Application application;
+    CatalogApplication application;
 
     @Inject
     Channel channel;

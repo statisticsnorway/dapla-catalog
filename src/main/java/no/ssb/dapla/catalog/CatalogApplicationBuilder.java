@@ -18,9 +18,9 @@ import org.slf4j.LoggerFactory;
 
 import static java.util.Optional.ofNullable;
 
-public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
+public class CatalogApplicationBuilder extends DefaultHelidonApplicationBuilder {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ApplicationBuilder.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CatalogApplicationBuilder.class);
 
     ManagedChannel authGrpcClientChannel;
 
@@ -68,6 +68,6 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
 
         AuthServiceGrpc.AuthServiceFutureStub authService = AuthServiceGrpc.newFutureStub(tracingInterceptor.intercept(authGrpcClientChannel));
 
-        return new Application(config, tracer, authService);
+        return new CatalogApplication(config, tracer, authService);
     }
 }

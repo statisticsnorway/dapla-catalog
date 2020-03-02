@@ -13,8 +13,8 @@ export JPMS_SWITCHES="
 
 if [ "$JAVA_MODULE_SYSTEM_ENABLED" == "true" ]; then
   echo "Starting java using MODULE-SYSTEM"
-  java $JPMS_SWITCHES -p /app/lib -m no.ssb.dapla.catalog/no.ssb.dapla.catalog.Application
+  java $JPMS_SWITCHES -p /app/lib -m no.ssb.dapla.catalog/no.ssb.dapla.catalog.CatalogApplication
 else
   echo "Starting java using CLASSPATH"
-  java -cp "/app/lib/*" no.ssb.dapla.catalog.Application
+  java -cp "/app/lib/*" no.ssb.dapla.catalog.CatalogApplication
 fi

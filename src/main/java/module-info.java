@@ -1,3 +1,5 @@
+import no.ssb.dapla.catalog.CatalogApplicationBuilder;
+
 module no.ssb.dapla.catalog {
     requires org.slf4j;
     requires jul.to.slf4j;
@@ -63,5 +65,5 @@ module no.ssb.dapla.catalog {
 
     opens db.migration; // flyway needs this to read migration files
 
-    provides no.ssb.helidon.application.HelidonApplicationBuilder with no.ssb.dapla.catalog.ApplicationBuilder;
+    provides no.ssb.helidon.application.HelidonApplicationBuilder with CatalogApplicationBuilder;
 }

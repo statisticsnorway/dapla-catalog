@@ -47,18 +47,18 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Optional.ofNullable;
 
-public class Application extends DefaultHelidonApplication {
+public class CatalogApplication extends DefaultHelidonApplication {
 
     private static final Logger LOG;
 
     static {
         installSlf4jJulBridge();
-        LOG = LoggerFactory.getLogger(Application.class);
+        LOG = LoggerFactory.getLogger(CatalogApplication.class);
     }
 
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis();
-        new ApplicationBuilder().build()
+        new CatalogApplicationBuilder().build()
                 .start()
                 .toCompletableFuture()
                 .orTimeout(10, TimeUnit.SECONDS)
@@ -71,7 +71,7 @@ public class Application extends DefaultHelidonApplication {
                 });
     }
 
-    Application(Config config, Tracer tracer, AuthServiceGrpc.AuthServiceFutureStub authService) {
+    CatalogApplication(Config config, Tracer tracer, AuthServiceGrpc.AuthServiceFutureStub authService) {
         put(Config.class, config);
 
         AtomicReference<ReadinessSample> lastReadySample = new AtomicReference<>(new ReadinessSample(false, System.currentTimeMillis()));

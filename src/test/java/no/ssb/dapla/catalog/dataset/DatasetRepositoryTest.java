@@ -1,6 +1,6 @@
 package no.ssb.dapla.catalog.dataset;
 
-import no.ssb.dapla.catalog.Application;
+import no.ssb.dapla.catalog.CatalogApplication;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.Dataset.DatasetState;
 import no.ssb.dapla.catalog.protobuf.Dataset.Valuation;
@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DatasetRepositoryTest {
 
     @Inject
-    Application application;
+    CatalogApplication application;
 
     @BeforeEach
     public void beforeEach() {
