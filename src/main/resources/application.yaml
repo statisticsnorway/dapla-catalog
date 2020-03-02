@@ -41,7 +41,7 @@ tracing:
   sampler-param: 1
   protocol: http
   host: tracing.istio-system.svc.cluster.local
-  port: 14268
+  port: 14250
   path: /api/traces
   paths:
     - path: "/favicon.ico"
