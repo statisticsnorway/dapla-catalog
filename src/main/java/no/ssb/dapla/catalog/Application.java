@@ -14,6 +14,7 @@ import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.WebTracingConfig;
 import io.helidon.webserver.accesslog.AccessLogSupport;
+import io.jaegertracing.Configuration;
 import io.opentracing.Tracer;
 import io.opentracing.contrib.grpc.OperationNameConstructor;
 import io.vertx.core.json.JsonObject;
@@ -57,6 +58,11 @@ public class Application extends DefaultHelidonApplication {
     }
 
     public static void main(String[] args) {
+        System.setProperty(Configuration.JAEGER_SERVICE_NAME, "catalog");
+        System.setProperty(Configuration.JAEGER_AGENT_HOST, "jaeger-collector.istio-system.svc.cluster.local");
+        System.setProperty(Configuration.JAEGER_AGENT_PORT, "14268");
+        System.setProperty(Configuration.JAEGER_ENDPOINT, "/api/traces");
+
         long startTime = System.currentTimeMillis();
         new ApplicationBuilder().build()
                 .start()

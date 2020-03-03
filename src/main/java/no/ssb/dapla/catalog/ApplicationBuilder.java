@@ -5,10 +5,17 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
 import io.helidon.tracing.TracerBuilder;
+import io.jaegertracing.Configuration;
+import io.jaegertracing.internal.JaegerTracer;
+import io.jaegertracing.internal.propagation.B3TextMapCodec;
+import io.jaegertracing.spi.Extractor;
+import io.jaegertracing.spi.Injector;
 import io.opentracing.Tracer;
 import io.opentracing.contrib.grpc.OperationNameConstructor;
 import io.opentracing.contrib.grpc.TracingClientInterceptor;
 import io.opentracing.contrib.grpc.TracingClientInterceptor.ClientRequestAttribute;
+import io.opentracing.propagation.Format;
+import io.opentracing.propagation.TextMap;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.helidon.application.DefaultHelidonApplicationBuilder;
 import no.ssb.helidon.application.HelidonApplication;
@@ -49,7 +56,11 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
                     .build();
         }
 
-        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(false);
+        Injector<TextMap> b3CodecIn = new B3TextMapCodec();
+        Extractor<TextMap> b3CodecEx= new B3TextMapCodec();
+        JaegerTracer.Builder tracerBuilder = Configuration.fromEnv().getTracerBuilder()
+            .registerInjector(Format.Builtin.HTTP_HEADERS, b3CodecIn)
+            .registerExtractor(Format.Builtin.HTTP_HEADERS, b3CodecEx);
         Tracer tracer = tracerBuilder.build();
 
         TracingClientInterceptor tracingInterceptor = TracingClientInterceptor.newBuilder()
