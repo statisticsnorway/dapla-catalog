@@ -58,9 +58,6 @@ public class Application extends DefaultHelidonApplication {
     }
 
     public static void main(String[] args) {
-        System.setProperty(Configuration.JAEGER_SERVICE_NAME, "catalog");
-        System.setProperty(Configuration.JAEGER_ENDPOINT, "jaeger-collector.istio-system.svc.cluster.local:14268/api/traces");
-
         long startTime = System.currentTimeMillis();
         new ApplicationBuilder().build()
                 .start()
