@@ -49,11 +49,6 @@
             <artifactId>dapla-auth-dataset-protobuf</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.helidon.tracing</groupId>
-            <artifactId>helidon-tracing-jaeger</artifactId>
-            <version>1.4.1</version>
-        </dependency>
-        <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
             <version>6.2.3</version>
