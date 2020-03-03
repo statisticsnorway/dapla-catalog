@@ -5,11 +5,6 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
 import io.helidon.tracing.TracerBuilder;
-import io.jaegertracing.Configuration;
-import io.jaegertracing.internal.JaegerTracer;
-import io.jaegertracing.internal.propagation.B3TextMapCodec;
-import io.jaegertracing.spi.Extractor;
-import io.jaegertracing.spi.Injector;
 import io.opentracing.Tracer;
 import io.opentracing.contrib.grpc.OperationNameConstructor;
 import io.opentracing.contrib.grpc.TracingClientInterceptor;
@@ -56,12 +51,7 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
                     .build();
         }
 
-        Injector<TextMap> b3CodecIn = new B3TextMapCodec();
-        Extractor<TextMap> b3CodecEx= new B3TextMapCodec();
-        JaegerTracer.Builder tracerBuilder = new  JaegerTracer.Builder("catalog")
-            .registerInjector(Format.Builtin.HTTP_HEADERS, b3CodecIn)
-            .registerExtractor(Format.Builtin.HTTP_HEADERS, b3CodecEx)
-            .withTag(Configuration.JAEGER_ENDPOINT, "jaeger-collector.istio-system.svc.cluster.local:14268/api/traces");
+        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(false);
         Tracer tracer = tracerBuilder.build();
 
         TracingClientInterceptor tracingInterceptor = TracingClientInterceptor.newBuilder()

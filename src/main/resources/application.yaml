@@ -43,7 +43,7 @@ tracing:
   host: jaeger-collector.istio-system.svc.cluster.local
   port: 14268
   path: /api/traces
-  propagation: "b3"
+  propagation: b3
   paths:
     - path: "/favicon.ico"
       enabled: false
