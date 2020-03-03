@@ -55,14 +55,13 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
                     .usePlaintext()
                     .build();
         }
-        System.setProperty(Configuration.JAEGER_SERVICE_NAME, "catalog");
-        System.setProperty(Configuration.JAEGER_ENDPOINT, "jaeger-collector.istio-system.svc.cluster.local:14268/api/traces");
 
         Injector<TextMap> b3CodecIn = new B3TextMapCodec();
         Extractor<TextMap> b3CodecEx= new B3TextMapCodec();
-        JaegerTracer.Builder tracerBuilder = Configuration.fromEnv().getTracerBuilder()
+        JaegerTracer.Builder tracerBuilder = new  JaegerTracer.Builder("catalog")
             .registerInjector(Format.Builtin.HTTP_HEADERS, b3CodecIn)
-            .registerExtractor(Format.Builtin.HTTP_HEADERS, b3CodecEx);
+            .registerExtractor(Format.Builtin.HTTP_HEADERS, b3CodecEx)
+            .withTag(Configuration.JAEGER_ENDPOINT, "jaeger-collector.istio-system.svc.cluster.local:14268/api/traces");
         Tracer tracer = tracerBuilder.build();
 
         TracingClientInterceptor tracingInterceptor = TracingClientInterceptor.newBuilder()
