@@ -40,9 +40,9 @@ tracing:
   sampler-type: const
   sampler-param: 1
   protocol: http
-  host: jaeger-collector.istio-system.svc.cluster.local
-  port: 14268
-  path: /api/traces
+  #host: jaeger-collector.istio-system.svc.cluster.local
+  #port: 14268
+  #path: /api/traces
   propagation: b3
   paths:
     - path: "/favicon.ico"
