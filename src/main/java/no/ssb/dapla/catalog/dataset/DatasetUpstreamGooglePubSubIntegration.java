@@ -68,7 +68,7 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
     @Override
     public void receiveMessage(PubsubMessage message, AckReplyConsumer consumer) {
         try {
-            DatasetMeta datasetMeta = DatasetMeta.parseFrom(message.getData());
+            DatasetMeta datasetMeta = ProtobufJsonUtils.toPojo(message.getData().toStringUtf8(), DatasetMeta.class);
             repository.create(Dataset.newBuilder()
                     .setId(DatasetId.newBuilder()
                             .setPath(datasetMeta.getId().getPath())
@@ -84,12 +84,10 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
             LOG.trace("Saved DatasetMeta. json='{}'", ProtobufJsonUtils.toString(datasetMeta));
             consumer.ack();
         } catch (RuntimeException | Error e) {
-            LOG.error("Sending nack on message to force re-delivery", e);
-            consumer.nack();
+            LOG.error("Error while processing message, waiting for ack deadline before re-delivery", e);
             throw e;
         } catch (InvalidProtocolBufferException e) {
-            LOG.error("Sending nack on message to force re-delivery", e);
-            consumer.nack();
+            LOG.error("Error while processing message, waiting for ack deadline before re-delivery", e);
             throw new RuntimeException(e);
         }
     }
