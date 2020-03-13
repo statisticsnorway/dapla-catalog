@@ -89,6 +89,29 @@ class DatasetRepositoryTest {
     }
 
     @Test
+    void thatGetAnExactVersionWorks() throws InterruptedException {
+        DatasetRepository repository = application.get(DatasetRepository.class);
+
+        Dataset ds1 = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath("1").setTimestamp(10).build())
+                .setState(DatasetState.RAW)
+                .setValuation(Valuation.SHIELDED)
+                .setParentUri("gcs://some-file")
+                .build();
+        repository.create(ds1).blockingGet();
+
+        Dataset ds2 = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath("1").setTimestamp(20).build())
+                .setState(DatasetState.INPUT)
+                .setValuation(Valuation.INTERNAL)
+                .setParentUri("gcs://another-file")
+                .build();
+        repository.create(ds2).blockingGet();
+
+        assertThat(repository.get("1", 10).blockingGet()).isEqualTo(ds1);
+    }
+
+    @Test
     void thatWriteWorks() {
 
         Dataset ds1 = Dataset.newBuilder()

@@ -186,8 +186,9 @@ class CatalogGrpcServiceTest {
 
     @Test
     void thatGetPreviousReturnsTheLatestDatasetWhenTimestampIsAfterTheLatest() {
+        long now = System.currentTimeMillis();
         Dataset dataset = Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setPath("dataset_from_before_timestamp").build())
+                .setId(DatasetId.newBuilder().setPath("dataset_from_before_timestamp").setTimestamp(now).build())
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.PRODUCT)
                 .setPseudoConfig(dummyPseudoConfig())
@@ -195,9 +196,7 @@ class CatalogGrpcServiceTest {
                 .build();
         repositoryCreate(dataset);
 
-        long timestamp = System.currentTimeMillis() + 50;
-
-        assertThat(get("dataset_from_before_timestamp", timestamp).getDataset()).isEqualTo(dataset);
+        assertThat(get("dataset_from_before_timestamp", now + 1).getDataset()).isEqualTo(dataset);
     }
 
     @Test

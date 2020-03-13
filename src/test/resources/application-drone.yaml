@@ -15,7 +15,7 @@ pgpool:
     max-size: 5
 
 init:
-  db-connectivity-attempts: 10
+  db-connectivity-attempts: 3
 
 flyway:
   url: jdbc:postgresql://postgres:5432/catalog

@@ -5,9 +5,7 @@ import io.reactivex.Completable;
 import io.reactivex.Flowable;
 import io.reactivex.Maybe;
 import io.reactivex.Single;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.sql.UpdateResult;
 import io.vertx.reactivex.ext.sql.SQLClient;
 import io.vertx.reactivex.ext.sql.SQLRowStream;
@@ -64,10 +62,10 @@ public class DatasetRepository {
 
     public Single<Integer> create(Dataset dataset) {
         String jsonDoc = ProtobufJsonUtils.toString(dataset);
-        JsonObject document = (JsonObject) Json.decodeValue(jsonDoc);
+        long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? System.currentTimeMillis() : dataset.getId().getTimestamp();
         JsonArray params = new JsonArray()
                 .add(dataset.getId().getPath())
-                .add(LocalDateTime.now(ZoneOffset.UTC).toString())
+                .add(LocalDateTime.ofInstant(Instant.ofEpochMilli(effectiveTimestamp), ZoneOffset.UTC).toString())
                 .add(jsonDoc)
                 .add(jsonDoc);
         return client
