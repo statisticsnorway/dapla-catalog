@@ -75,7 +75,7 @@ steps:
       status: [ success, failure ]
     depends_on:
       - sonarqube
-      - publish-docker
+      - publish-docker-image
 
   # Rebuild cache if it has changed with this build
   - name: rebuild-cache
