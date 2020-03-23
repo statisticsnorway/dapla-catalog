@@ -3,8 +3,6 @@ package no.ssb.dapla.catalog.dataset;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
-import com.google.cloud.pubsub.v1.SubscriptionAdminClient;
-import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.pubsub.v1.PubsubMessage;
@@ -15,7 +13,6 @@ import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.dataset.api.DatasetMeta;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.pubsub.PubSub;
-import no.ssb.pubsub.PubSubAdmin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,30 +36,20 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
         String topicName = pubSubUpstreamConfig.get("topic").asString().get();
         String subscriptionName = pubSubUpstreamConfig.get("subscription").asString().get();
 
-        LOG.info("Creating topic admin client");
-
-        try (TopicAdminClient topicAdminClient = pubSub.getTopicAdminClient()) {
-            LOG.info("Using topic: {}", topicName);
-            PubSubAdmin.createTopicIfNotExists(topicAdminClient, projectId, topicName);
-            LOG.info("Creating subscription admin client");
-            try (SubscriptionAdminClient subscriptionAdminClient = pubSub.getSubscriptionAdminClient()) {
-                LOG.info("Using subscription: {}", subscriptionName);
-                PubSubAdmin.createSubscriptionIfNotExists(subscriptionAdminClient, projectId, topicName, subscriptionName, 60);
-
-                LOG.info("Creating subscriber");
-                subscriber = pubSub.getSubscriber(projectId, subscriptionName, this);
-                subscriber.addListener(
-                        new Subscriber.Listener() {
-                            public void failed(Subscriber.State from, Throwable failure) {
-                                LOG.error(String.format("Error with subscriber on subscription '%s' and topic '%s'", subscriptionName, topicName), failure);
-                            }
-                        },
-                        MoreExecutors.directExecutor());
-                LOG.info("Subscriber async pull starting...");
-                subscriber.startAsync().awaitRunning();
-                LOG.info("Subscriber async pull is now running.");
-            }
-        }
+        LOG.info("Using upstream topic: {}", topicName);
+        LOG.info("Using upstream subscription: {}", subscriptionName);
+        LOG.info("Creating subscriber");
+        subscriber = pubSub.getSubscriber(projectId, subscriptionName, this);
+        subscriber.addListener(
+                new Subscriber.Listener() {
+                    public void failed(Subscriber.State from, Throwable failure) {
+                        LOG.error(String.format("Error with subscriber on subscription '%s' and topic '%s'", subscriptionName, topicName), failure);
+                    }
+                },
+                MoreExecutors.directExecutor());
+        LOG.info("Subscriber async pull starting...");
+        subscriber.startAsync().awaitRunning();
+        LOG.info("Subscriber async pull is now running.");
     }
 
     @Override

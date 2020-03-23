@@ -24,6 +24,7 @@ import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.dataset.CatalogGrpcService;
 import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegration;
+import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegrationInitializer;
 import no.ssb.dapla.catalog.health.Health;
 import no.ssb.dapla.catalog.health.HealthAwareSQLClient;
 import no.ssb.dapla.catalog.health.ReadinessSample;
@@ -96,6 +97,11 @@ public class CatalogApplication extends DefaultHelidonApplication {
             put(PubSub.class, pubSub);
 
             LOG.info("Created PubSub of class type: " + pubSub.getClass().getName());
+
+            if (config.get("pubsub.admin").asBoolean().orElse(false)) {
+                LOG.info("Admin of topics and subscriptions enabled, running initializer");
+                DatasetUpstreamGooglePubSubIntegrationInitializer.initializeTopicsAndSubscriptions(config.get("pubsub.upstream"), pubSub);
+            }
 
             DatasetUpstreamGooglePubSubIntegration datasetUpstreamSubscriber = new DatasetUpstreamGooglePubSubIntegration(config.get("pubsub.upstream"), pubSub, repository);
             put(DatasetUpstreamGooglePubSubIntegration.class, datasetUpstreamSubscriber);

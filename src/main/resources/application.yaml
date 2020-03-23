@@ -53,6 +53,7 @@ tracing:
 
 pubsub:
   enabled: true
+  admin: true
   use-emulator: true
   emulator:
     host: localhost
