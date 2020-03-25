@@ -1,14 +1,5 @@
 # dapla-catalog
 The catalog domain maintains headers, metadata, and schema of datasets
 
-Add the following jvm options when running tests or application with module-system:
-```
---add-exports=io.grpc/io.opencensus.common=gax
---add-exports=io.grpc/io.opencensus.trace=gax
---add-exports=io.grpc/io.opencensus.trace=com.google.api.client
---add-exports=io.grpc/io.opencensus.trace.propagation=com.google.api.client
---add-exports=io.grpc/io.opencensus.trace.export=com.google.api.client
---add-exports=io.grpc/io.opencensus.common=com.google.api.client
---add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util
---add-exports=io.grpc/io.opencensus.trace=opencensus.contrib.http.util
-```
+Start the database with `make start-db` from the project root when running tests or application locally
+and change to correct port (10112) for `pgpool` and `flyway` in `application.yaml

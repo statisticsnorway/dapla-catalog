@@ -97,8 +97,13 @@ class CatalogGrpcServiceTest {
 
     @Test
     void thatListByPrefixWorks() {
+
+        // Create datasets, some with multiple versions
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/another/prefix").build()).build());
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/2").build()).build());
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/3").build()).build());
