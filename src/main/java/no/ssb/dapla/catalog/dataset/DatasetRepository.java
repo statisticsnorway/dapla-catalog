@@ -35,7 +35,10 @@ public class DatasetRepository {
     public Flowable<DatasetId> listByPrefix(String prefix, int limit) {
         JsonArray params = new JsonArray().add(prefix + "%").add(limit);
         return client
-                .rxQueryStreamWithParams("SELECT path, version, document FROM Dataset WHERE path LIKE ? LIMIT ?", params)
+                .rxQueryStreamWithParams("SELECT DISTINCT ON (path) " +
+                        " path, version, document FROM Dataset WHERE path LIKE ? " +
+                        " ORDER BY path, version DESC " +
+                        " LIMIT ?", params)
                 .flatMapPublisher(SQLRowStream::toFlowable)
                 .map(jsonArray -> ProtobufJsonUtils.toPojo(jsonArray.getString(2), Dataset.class))
                 .map(Dataset::getId);
