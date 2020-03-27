@@ -48,8 +48,8 @@ public class DatasetRepository {
                 .map(Dataset::getId);
     }
 
-    public Flowable<Dataset> listCatalogs(String prefix, int limit) {
-        JsonArray params = new JsonArray().add( (prefix != null && prefix.length() >0) ? "%" + prefix + "%" : "%").add(limit);
+    public Flowable<Dataset> listCatalogs(String pathPart, int limit) {
+        JsonArray params = new JsonArray().add( (pathPart != null && pathPart.length() >0) ? "%" + pathPart + "%" : "%").add(limit);
         return client
                 .rxQueryStreamWithParams("SELECT DISTINCT ON (path) " +
                         " path, document FROM Dataset WHERE path LIKE ? " +
