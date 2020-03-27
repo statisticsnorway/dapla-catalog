@@ -51,7 +51,7 @@ public class CatalogHttpService implements Service {
                         LOG.info("catalogs: {}", catalogs);
                         Tracing.restoreTracingContext(tracerAndSpan);
 
-                        StringBuffer jsonCatalogs = new StringBuffer("{ \"\": [");
+                        StringBuffer jsonCatalogs = new StringBuffer("{ \"catalogs\": [");
                             for (Dataset catalog : catalogs) {
                                 LOG.info("catalog: {}", catalog);
                                 jsonCatalogs.append(ProtobufJsonUtils.toString(catalog)).append(',');                            }
