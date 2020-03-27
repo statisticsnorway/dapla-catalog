@@ -21,10 +21,7 @@ import io.vertx.reactivex.core.Vertx;
 import io.vertx.reactivex.ext.asyncsql.PostgreSQLClient;
 import io.vertx.reactivex.ext.sql.SQLClient;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.catalog.dataset.CatalogGrpcService;
-import no.ssb.dapla.catalog.dataset.DatasetRepository;
-import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegration;
-import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegrationInitializer;
+import no.ssb.dapla.catalog.dataset.*;
 import no.ssb.dapla.catalog.health.Health;
 import no.ssb.dapla.catalog.health.HealthAwareSQLClient;
 import no.ssb.dapla.catalog.health.ReadinessSample;
@@ -145,6 +142,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(health)
+                .register("/catalog", new CatalogHttpService(repository))
                 .register("/rpc", new HelidonGrpcWebTranscoding(
                         () -> ManagedChannelBuilder
                                 .forAddress("localhost", Optional.of(grpcServer)

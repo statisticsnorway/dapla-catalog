@@ -14,12 +14,15 @@ import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.eclipse.microprofile.metrics.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 public class DatasetRepository {
+    private static final Logger LOG = LoggerFactory.getLogger(DatasetRepository.class);
 
     private final SQLClient client;
 
@@ -40,8 +43,22 @@ public class DatasetRepository {
                         " ORDER BY path, version DESC " +
                         " LIMIT ?", params)
                 .flatMapPublisher(SQLRowStream::toFlowable)
-                .map(jsonArray -> ProtobufJsonUtils.toPojo(jsonArray.getString(2), Dataset.class))
+                .map(jsonArray ->
+                    ProtobufJsonUtils.toPojo(jsonArray.getString(2), Dataset.class))
                 .map(Dataset::getId);
+    }
+
+    public Flowable<Dataset> listCatalogs(String prefix, int limit) {
+        JsonArray params = new JsonArray().add( (prefix != null && prefix.length() >0) ? "%" + prefix + "%" : "%").add(limit);
+        return client
+                .rxQueryStreamWithParams("SELECT DISTINCT ON (path) " +
+                        " path, document FROM Dataset WHERE path LIKE ? " +
+                        " ORDER BY path, version DESC " +
+                        " LIMIT ?", params)
+                .flatMapPublisher(SQLRowStream::toFlowable)
+                .map(jsonArray ->
+                        ProtobufJsonUtils.toPojo(jsonArray.getString(1), Dataset.class))
+                ;
     }
 
     /**
