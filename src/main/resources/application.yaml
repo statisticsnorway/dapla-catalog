@@ -39,6 +39,7 @@ tracing:
   service: catalog
   sampler-type: const
   sampler-param: 1
+  propagation: b3
   protocol: http
   host: localhost
   port: 14268
