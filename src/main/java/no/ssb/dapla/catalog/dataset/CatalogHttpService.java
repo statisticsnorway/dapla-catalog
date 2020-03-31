@@ -1,10 +1,6 @@
 package no.ssb.dapla.catalog.dataset;
 
-
-import io.helidon.webserver.Routing;
-import io.helidon.webserver.ServerRequest;
-import io.helidon.webserver.ServerResponse;
-import io.helidon.webserver.Service;
+import io.helidon.webserver.*;
 import io.opentracing.Span;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.helidon.application.TracerAndSpan;
@@ -32,19 +28,19 @@ public class CatalogHttpService implements Service {
     @Override
     public void update(Routing.Rules rules) {
         LOG.info("rules: ", rules);
-        rules.get("/", this::doGetAll);
-        rules.get("/{prefix}", this::doGetAll);
+        rules.get("/", this::doGetList);
+        rules.get("/{pathPart}", this::doGetList);
     }
 
-    private void doGetAll(ServerRequest req, ServerResponse res) {
+    private void doGetList(ServerRequest req, ServerResponse res) {
         LOG.info("doGetAll: ");
         TracerAndSpan tracerAndSpan = spanFromHttp(req, "doGetAll");
-        String prefix = req.path().param("prefix");
-        LOG.info("doGetAll, prefix: {}", prefix);
+        String pathPart = req.path().param("pathPart");
+        LOG.info("doGetAll, pathPart: {}", pathPart);
         Span span = tracerAndSpan.span();
         try {
-            String finalPrefix = prefix != null ? prefix : "";
-            repository.listCatalogs(prefix, limit)
+            String finalPathPart = pathPart != null ? pathPart : "";
+            repository.listCatalogs(finalPathPart, limit)
                     .timeout(5, TimeUnit.SECONDS)
                     .toList()
                     .subscribe(catalogs -> {
@@ -65,7 +61,7 @@ public class CatalogHttpService implements Service {
                         try {
                             Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in nameIndex.listByPrefix()");
-                            LOG.error(String.format("nameIndex.listByPrefix(): prefix='%s'", finalPrefix), throwable);
+                            LOG.error(String.format("nameIndex.listByPrefix(): prefix='%s'", finalPathPart), throwable);
                         } finally {
                             span.finish();
                         }
@@ -80,4 +76,5 @@ public class CatalogHttpService implements Service {
             }
         }
     }
+
 }
