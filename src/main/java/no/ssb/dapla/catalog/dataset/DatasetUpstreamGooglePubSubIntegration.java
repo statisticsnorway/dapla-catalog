@@ -55,21 +55,27 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
     @Override
     public void receiveMessage(PubsubMessage message, AckReplyConsumer consumer) {
         try {
-            DatasetMeta datasetMeta = ProtobufJsonUtils.toPojo(message.getData().toStringUtf8(), DatasetMeta.class);
-            repository.create(Dataset.newBuilder()
+            String parentUri = message.getAttributesMap().get("parentUri");
+            String metadataJson = message.getData().toStringUtf8();
+            DatasetMeta datasetMeta = ProtobufJsonUtils.toPojo(metadataJson, DatasetMeta.class);
+            Dataset dataset = Dataset.newBuilder()
                     .setId(DatasetId.newBuilder()
                             .setPath(datasetMeta.getId().getPath())
-                            .setTimestamp(datasetMeta.getId().getVersion())
+                            .setTimestamp(Long.parseLong(datasetMeta.getId().getVersion()))
                             .build())
                     .setType(Dataset.Type.valueOf(datasetMeta.getType().name()))
                     .setValuation(Dataset.Valuation.valueOf(datasetMeta.getValuation().name()))
                     .setState(Dataset.DatasetState.valueOf(datasetMeta.getState().name()))
-                    .setParentUri(datasetMeta.getParentUri())
+                    .setParentUri(parentUri)
                     .setPseudoConfig(PseudoConfig.parseFrom(datasetMeta.getPseudoConfig().toByteString())) // use serialization to cast, assume they are compatible
-                    .build())
-                    .blockingGet();
-            LOG.trace("Saved DatasetMeta. json='{}'", ProtobufJsonUtils.toString(datasetMeta));
-            consumer.ack();
+                    .build();
+            repository.create(dataset)
+                    .doOnSuccess(rowsUpdated -> {
+                        consumer.ack();
+                        LOG.trace("Saved Dataset. json='{}'", ProtobufJsonUtils.toString(dataset));
+                    })
+                    .doOnError(throwable -> LOG.error("Error while processing message, waiting for ack deadline before re-delivery", throwable))
+                    .subscribe();
         } catch (RuntimeException | Error e) {
             LOG.error("Error while processing message, waiting for ack deadline before re-delivery", e);
             throw e;
