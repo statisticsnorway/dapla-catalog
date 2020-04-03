@@ -39,6 +39,7 @@
         <dependency>
             <groupId>no.ssb.dapla</groupId>
             <artifactId>dataset-api</artifactId>
+            <version>0.2</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.dapla.catalog</groupId>
