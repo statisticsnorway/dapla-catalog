@@ -12,7 +12,7 @@ import io.reactivex.Maybe;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.auth.dataset.protobuf.Role;
+import no.ssb.dapla.auth.dataset.protobuf.Privilege;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
@@ -145,8 +145,8 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
             AccessCheckRequest checkRequest = AccessCheckRequest.newBuilder()
                     .setUserId(userId)
-                    .setNamespace(dataset.getId().getPath())
-                    .setPrivilege(Role.Privilege.CREATE.name())
+                    .setPath(dataset.getId().getPath())
+                    .setPrivilege(Privilege.CREATE.name())
                     .setValuation(dataset.getValuation().name())
                     .setState(dataset.getState().name())
                     .build();
