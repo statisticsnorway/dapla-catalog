@@ -1,5 +1,9 @@
 package no.ssb.dapla.catalog.dataset;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.helidon.webserver.*;
 import io.opentracing.Span;
 import no.ssb.dapla.catalog.protobuf.Dataset;
@@ -25,9 +29,11 @@ public class CatalogHttpService implements Service {
 
     private final int limit = 100;
 
+    final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     public void update(Routing.Rules rules) {
-        LOG.info("rules: ", rules);
+        LOG.info("rules: {}", rules);
         rules.get("/", this::doGetList);
         rules.get("/{pathPart}", this::doGetList);
     }
@@ -47,13 +53,18 @@ public class CatalogHttpService implements Service {
                         LOG.info("catalogs: {}", catalogs);
                         Tracing.restoreTracingContext(tracerAndSpan);
 
-                        StringBuffer jsonCatalogs = new StringBuffer("{ \"catalogs\": [");
-                            for (Dataset catalog : catalogs) {
-                                LOG.info("catalog: {}", catalog);
-                                jsonCatalogs.append(ProtobufJsonUtils.toString(catalog)).append(',');                            }
-                            jsonCatalogs.deleteCharAt(jsonCatalogs.length() - 1);
-                            jsonCatalogs.append("]}");
-                            res.send(jsonCatalogs);
+                        ArrayNode catalogList = objectMapper.createArrayNode();
+                        for (Dataset catalog : catalogs) {
+                            LOG.info("catalog: {}", catalog);
+//                            String json = objectMapper.writeValueAsString(catalog);
+//                            JsonNode catalogNode = objectMapper.readTree(json);
+                            LOG.info("catalog: {}", catalog);
+                            catalogList.add(ProtobufJsonUtils.toString(catalog));
+                        }
+                        ObjectNode jsonCatalogs = objectMapper.createObjectNode();
+                        jsonCatalogs.set("catalogs", catalogList);
+
+                        res.send(jsonCatalogs);
                         span.finish();
                         res.send();
                         Tracing.traceOutputMessage(span, jsonCatalogs.toString());
