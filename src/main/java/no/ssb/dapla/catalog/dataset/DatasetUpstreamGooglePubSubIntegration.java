@@ -1,10 +1,11 @@
 package no.ssb.dapla.catalog.dataset;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.pubsub.v1.PubsubMessage;
 import io.helidon.config.Config;
 import no.ssb.dapla.catalog.protobuf.Dataset;
@@ -16,6 +17,8 @@ import no.ssb.pubsub.PubSub;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -25,6 +28,7 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
 
     final PubSub pubSub;
     final DatasetRepository repository;
+    final ObjectMapper objectMapper = new ObjectMapper();
 
     final Subscriber subscriber;
 
@@ -55,8 +59,13 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
     @Override
     public void receiveMessage(PubsubMessage message, AckReplyConsumer consumer) {
         try {
-            String parentUri = message.getAttributesMap().get("parentUri");
-            String metadataJson = message.getData().toStringUtf8();
+            JsonNode dataNode;
+            try (InputStream inputStream = message.getData().newInput()) {
+                dataNode = objectMapper.readTree(inputStream);
+            }
+            String parentUri = dataNode.get("parentUri").textValue();
+            JsonNode datasetMetaNode = dataNode.get("dataset-meta");
+            String metadataJson = objectMapper.writeValueAsString(datasetMetaNode);
             DatasetMeta datasetMeta = ProtobufJsonUtils.toPojo(metadataJson, DatasetMeta.class);
             Dataset dataset = Dataset.newBuilder()
                     .setId(DatasetId.newBuilder()
@@ -79,7 +88,7 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
         } catch (RuntimeException | Error e) {
             LOG.error("Error while processing message, waiting for ack deadline before re-delivery", e);
             throw e;
-        } catch (InvalidProtocolBufferException e) {
+        } catch (IOException e) {
             LOG.error("Error while processing message, waiting for ack deadline before re-delivery", e);
             throw new RuntimeException(e);
         }
