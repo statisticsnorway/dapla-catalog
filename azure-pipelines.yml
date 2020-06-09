@@ -81,10 +81,6 @@ jobs:
             maven
           path: $(MAVEN_CACHE_FOLDER)
 
-#      - script: |
-#          echo "Setting env variable HELIDON_CONFIG_PROFILE"
-#          echo "##vso[task.setvariable variable=HELIDON_CONFIG_PROFILE]drone"
-#        displayName: 'Setting HELIDON_CONFIG_PROFILE env variable'
 
       # Maven test and verify
       - task: Maven@3
@@ -141,7 +137,7 @@ jobs:
           publishJUnitResults: false
           testResultsFiles: '**/TEST-*.xml'
           goals: 'deploy'
-          options: '-DskipTests=true -Dmaven.javadoc.skip=true -U -P -Djdk.tls.client.protocols="TLSv1.2" ssb-bip --batch-mode --global-settings settings.xml'
+          options: '-DskipTests=true -Dmaven.javadoc.skip=true -U -P ssb-bip --batch-mode -Djdk.tls.client.protocols="TLSv1.2"'
 
       # Build Docker image
       - task: Docker@2
