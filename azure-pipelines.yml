@@ -69,7 +69,7 @@ jobs:
         inputs:
           mavenPomFile: 'pom.xml'
           goals: 'verify test'
-          options: '-P ssb-bip,coverage --batch-mode --global-settings settings.xml'
+          options: '-P ssb-bip,coverage --batch-mode'
           publishJUnitResults: true
           testResultsFiles: '**/TEST-*.xml'
           codeCoverageToolOption: 'JaCoCo'
@@ -92,7 +92,7 @@ jobs:
         inputs:
           mavenPomFile: 'pom.xml'
           goals: 'sonar:sonar'
-          options: '-X -Dsonar.host.url=$(SONAR_HOST) -Dsonar.login=$(SONAR_TOKEN) sonar:sonar -P ssb-bip,coverage -Dmaven.javadoc.skip=true --batch-mode  --global-settings settings.xml'
+          options: '-X -Dsonar.host.url=$(SONAR_HOST) -Dsonar.login=$(SONAR_TOKEN) sonar:sonar -P ssb-bip,coverage -Dmaven.javadoc.skip=true --batch-mode'
           publishJUnitResults: false
           testResultsFiles: '**/TEST-*.xml'
           javaHomeOption: 'JDKVersion'
