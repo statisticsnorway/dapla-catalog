@@ -15,7 +15,7 @@ resources:
   - container: 'postgres_linux_container_for_integration_tests'
     image: 'postgres:12-alpine'
     ports:
-      - 10112
+      - 5432
     env:
       POSTGRES_DB: $(IntegrationTests.Database.Name)
       POSTGRES_USER: $(IntegrationTests.Database.Username)
@@ -87,7 +87,7 @@ jobs:
         inputs:
           mavenPomFile: 'pom.xml'
           goals: 'verify test'
-          options: '-P ssb-bip,coverage --batch-mode $(MAVEN_OPTS)'
+          options: '-P ssb-bip,coverage --batch-mode -dHELIDON_CONFIG_PROFILE=drone $(MAVEN_OPTS)'
           publishJUnitResults: true
           testResultsFiles: '**/TEST-*.xml'
           codeCoverageToolOption: 'JaCoCo'
