@@ -44,6 +44,11 @@ variables:
     value: 'catalog'
   - name: 'IntegrationTests.Database.Password'
     value: 'catalog'
+  - name:  MAVEN_CACHE_FOLDER
+    value: $(Pipeline.Workspace)/.m2/repository
+  - name: MAVEN_OPTS
+    value: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
+
 
 
 # Job which runs mvn test and verify, Sonar Analysis (if branch is master), mvn install,
@@ -62,14 +67,24 @@ jobs:
         displayName: 'Maven authenticate'
         inputs:
           mavenServiceConnections: 'mvnSsbBipPublic, mvnSsbBipReleases, mvnSsbBipSnapshots'
-
+      
+      #Maven caching to speed up pipeline build time
+      - task: Cache@2
+        displayName: Cache Maven local repo
+        inputs:
+          key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          restoreKeys: |
+            maven | "$(Agent.OS)"
+            maven
+          path: $(MAVEN_CACHE_FOLDER)
+          
       # Maven test and verify
       - task: Maven@3
         displayName: 'Maven test and verify'
         inputs:
           mavenPomFile: 'pom.xml'
           goals: 'verify test'
-          options: '-P ssb-bip,coverage --batch-mode'
+          options: '-P ssb-bip,coverage --batch-mode -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
           publishJUnitResults: true
           testResultsFiles: '**/TEST-*.xml'
           codeCoverageToolOption: 'JaCoCo'
@@ -92,7 +107,7 @@ jobs:
         inputs:
           mavenPomFile: 'pom.xml'
           goals: 'sonar:sonar'
-          options: '-X -Dsonar.host.url=$(SONAR_HOST) -Dsonar.login=$(SONAR_TOKEN) sonar:sonar -P ssb-bip,coverage -Dmaven.javadoc.skip=true --batch-mode'
+          options: '-X -Dsonar.host.url=$(SONAR_HOST) -Dsonar.login=$(SONAR_TOKEN) sonar:sonar -P ssb-bip,coverage -Dmaven.javadoc.skip=true --batch-mode -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
           publishJUnitResults: false
           testResultsFiles: '**/TEST-*.xml'
           javaHomeOption: 'JDKVersion'
