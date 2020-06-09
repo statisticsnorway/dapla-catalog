@@ -3,16 +3,15 @@ name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
 trigger:
   branches:
     include:
-      - 'master'
+      - 'azure-pipeline'
   tags:
     include:
       - '*'
-# Pipeline will be run on this base image
-pool:
-  vmImage: 'ubuntu-latest'
 
 resources:
   containers:
+  - container: my_container
+    image: ubuntu:16.04
   - container: 'postgres_linux_container_for_integration_tests'
     image: 'postgres:12-alpine'
     ports:
@@ -22,6 +21,9 @@ resources:
       POSTGRES_USER: $(IntegrationTests.Database.Username)
       POSTGRES_PASSWORD: $(IntegrationTests.Database.Password)
 
+# Pipeline will be run on this base image
+pool:
+  vmImage: 'ubuntu-latest'
 
 # Variables global to this pipeline
 # https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
@@ -48,6 +50,7 @@ variables:
 # builds Docker image, pushes this to GCR and checks for any image vulnerabilities
 jobs:
   - job: buildTestDockerBuildDockerPush
+    container: my_container
     displayName: 'Test/build app and Dockerimage'
     # Job condition: Run these jobs on any branch, but not on tags
     condition: not(startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
