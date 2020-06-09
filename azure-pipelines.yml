@@ -15,7 +15,7 @@ resources:
   - container: 'postgres_linux_container_for_integration_tests'
     image: 'postgres:12-alpine'
     ports:
-      - 9999:10112/tcp
+      - 10112
     env:
       POSTGRES_DB: $(IntegrationTests.Database.Name)
       POSTGRES_USER: $(IntegrationTests.Database.Username)
