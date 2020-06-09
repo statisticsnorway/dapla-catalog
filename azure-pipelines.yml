@@ -10,7 +10,7 @@ trigger:
 
 resources:
   containers:
-  #- container: my_container
+  - container: my_container
   #  image: ubuntu:16.04
   - container: 'postgres_linux_container_for_integration_tests'
     image: 'postgres:12-alpine'
@@ -58,7 +58,7 @@ jobs:
   - job: buildTestDockerBuildDockerPush
     services: 
       postgres: postgres_linux_container_for_integration_tests
-    #container: my_container
+    container: my_container
     displayName: 'Test/build app and Dockerimage'
     # Job condition: Run these jobs on any branch, but not on tags
     condition: not(startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
