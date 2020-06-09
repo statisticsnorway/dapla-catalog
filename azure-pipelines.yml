@@ -14,13 +14,13 @@ pool:
 resources:
   containers:
   - container: 'postgres_linux_container_for_integration_tests'
-      image: 'postgres:12-alpine'
-      ports:
-        - 9999:5432/tcp
-      env:
-        POSTGRES_DB: $(IntegrationTests.Database.Name)
-        POSTGRES_USER: $(IntegrationTests.Database.Username)
-        POSTGRES_PASSWORD: $(IntegrationTests.Database.Password)
+    image: 'postgres:12-alpine'
+    ports:
+      - 9999:5432/tcp
+    env:
+      POSTGRES_DB: $(IntegrationTests.Database.Name)
+      POSTGRES_USER: $(IntegrationTests.Database.Username)
+      POSTGRES_PASSWORD: $(IntegrationTests.Database.Password)
 
 
 # Variables global to this pipeline
