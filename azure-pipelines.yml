@@ -10,8 +10,6 @@ trigger:
 
 resources:
   containers:
-#  - container: my_container
-#    image: ubuntu:16.04
   - container: 'postgres_linux_container_for_integration_tests'
     image: 'postgres:12-alpine'
     ports:
@@ -20,7 +18,6 @@ resources:
       POSTGRES_DB: $(IntegrationTests.Database.Name)
       POSTGRES_USER: $(IntegrationTests.Database.Username)
       POSTGRES_PASSWORD: $(IntegrationTests.Database.Password)
-
 
 # Pipeline will be run on this base image
 pool:
@@ -56,9 +53,9 @@ variables:
 # builds Docker image, pushes this to GCR and checks for any image vulnerabilities
 jobs:
   - job: buildTestDockerBuildDockerPush
+    # Available on "localhost:10112"
     services: 
       postgres: postgres_linux_container_for_integration_tests
-    #container: my_container
     displayName: 'Test/build app and Dockerimage'
     # Job condition: Run these jobs on any branch, but not on tags
     condition: not(startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
@@ -80,7 +77,6 @@ jobs:
             maven | "$(Agent.OS)"
             maven
           path: $(MAVEN_CACHE_FOLDER)
-
 
       # Maven test and verify
       - task: Maven@3
