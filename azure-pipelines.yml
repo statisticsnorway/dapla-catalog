@@ -11,7 +11,7 @@ trigger:
 resources:
   containers:
   - container: my_container
-  #  image: ubuntu:16.04
+    image: ubuntu:16.04
   - container: 'postgres_linux_container_for_integration_tests'
     image: 'postgres:12-alpine'
     ports:
