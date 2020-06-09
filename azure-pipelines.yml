@@ -50,7 +50,7 @@ variables:
 # builds Docker image, pushes this to GCR and checks for any image vulnerabilities
 jobs:
   - job: buildTestDockerBuildDockerPush
-    container: my_container
+    #container: my_container
     displayName: 'Test/build app and Dockerimage'
     # Job condition: Run these jobs on any branch, but not on tags
     condition: not(startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
