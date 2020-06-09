@@ -87,7 +87,7 @@ jobs:
         inputs:
           mavenPomFile: 'pom.xml'
           goals: 'verify test'
-          options: '-P ssb-bip,coverage --batch-mode -dHELIDON_CONFIG_PROFILE=drone $(MAVEN_OPTS)'
+          options: '-P ssb-bip,coverage --batch-mode -DargLine="HELIDON_CONFIG_PROFILE=drone" $(MAVEN_OPTS)'
           publishJUnitResults: true
           testResultsFiles: '**/TEST-*.xml'
           codeCoverageToolOption: 'JaCoCo'
