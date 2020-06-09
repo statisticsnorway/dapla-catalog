@@ -15,7 +15,7 @@ resources:
   - container: 'postgres_linux_container_for_integration_tests'
     image: 'postgres:12-alpine'
     ports:
-      - 5432:5432
+      - 10112:5432
     env:
       POSTGRES_DB: $(IntegrationTests.Database.Name)
       POSTGRES_USER: $(IntegrationTests.Database.Username)
@@ -81,10 +81,10 @@ jobs:
             maven
           path: $(MAVEN_CACHE_FOLDER)
 
-      - script: |
-          echo "Setting env variable HELIDON_CONFIG_PROFILE"
-          echo "##vso[task.setvariable variable=HELIDON_CONFIG_PROFILE]drone"
-        displayName: 'Setting HELIDON_CONFIG_PROFILE env variable'
+#      - script: |
+#          echo "Setting env variable HELIDON_CONFIG_PROFILE"
+#          echo "##vso[task.setvariable variable=HELIDON_CONFIG_PROFILE]drone"
+#        displayName: 'Setting HELIDON_CONFIG_PROFILE env variable'
 
       # Maven test and verify
       - task: Maven@3
@@ -92,7 +92,7 @@ jobs:
         inputs:
           mavenPomFile: 'pom.xml'
           goals: 'verify test'
-          options: '-P ssb-bip,coverage --batch-mode -DargLine="HELIDON_CONFIG_PROFILE=drone" $(MAVEN_OPTS)'
+          options: '-P ssb-bip,coverage --batch-mode $(MAVEN_OPTS)'
           publishJUnitResults: true
           testResultsFiles: '**/TEST-*.xml'
           codeCoverageToolOption: 'JaCoCo'
