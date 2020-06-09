@@ -133,7 +133,7 @@ jobs:
           publishJUnitResults: false
           testResultsFiles: '**/TEST-*.xml'
           goals: 'deploy'
-          options: '-DskipTests=true -Dmaven.javadoc.skip=true -U -P ssb-bip --batch-mode -Djdk.tls.client.protocols="TLSv1.2"'
+          options: '-DskipTests=true -Dmaven.javadoc.skip=true -U -P ssb-bip --batch-mode -Djdk.tls.client.protocols="TLSv1.2" $(MAVEN_OPTS)'
 
       # Build Docker image
       - task: Docker@2
