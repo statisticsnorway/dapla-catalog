@@ -3,7 +3,7 @@ name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
 trigger:
   branches:
     include:
-      - 'azure-pipeline'
+      - '*'
   tags:
     include:
       - '*'
