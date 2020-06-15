@@ -116,7 +116,7 @@ jobs:
           mavenOptions: '-Xmx3072m'
           mavenAuthenticateFeed: false
           effectivePomSkip: false
-          sonarQubeRunAnalysis: true
+          sonarQubeRunAnalysis: false
           checkStyleRunAnalysis: false
           pmdRunAnalysis: false
           findBugsRunAnalysis: false
