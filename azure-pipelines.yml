@@ -121,12 +121,6 @@ jobs:
           pmdRunAnalysis: false
           findBugsRunAnalysis: false
 
-      # Publish code coverage results
-      - task: PublishCodeCoverageResults@1
-        codeCoverageTool: 'JaCoCo'
-        inputs:
-          summaryFileLocation:
-
       - task: SonarQubePrepare@4
       # Task condition: We have community edition of SonarQube which only scans master-branch so
       # it makes no sense running this tag when branch is other than master
