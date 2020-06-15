@@ -89,7 +89,7 @@ jobs:
           testResultsFiles: '**/TEST-*.xml'
           codeCoverageToolOption: 'JaCoCo'
           javaHomeOption: 'JDKVersion'
-          jdkVersionOption: '1.11'
+          jdkVersionOption: '1.8'
           mavenVersionOption: 'Default'
           mavenOptions: '-Xmx3072m'
           mavenAuthenticateFeed: false
@@ -111,7 +111,7 @@ jobs:
           publishJUnitResults: false
           testResultsFiles: '**/TEST-*.xml'
           javaHomeOption: 'JDKVersion'
-          jdkVersionOption: '1.11'
+          jdkVersionOption: '1.8'
           mavenVersionOption: 'Default'
           mavenOptions: '-Xmx3072m'
           mavenAuthenticateFeed: false
@@ -128,7 +128,7 @@ jobs:
           mavenPomFile: 'pom.xml'
           mavenOptions: '-Xmx3072m'
           javaHomeOption: 'JDKVersion'
-          jdkVersionOption: '1.11'
+          jdkVersionOption: '1.8
           jdkArchitectureOption: 'x64'
           publishJUnitResults: false
           testResultsFiles: '**/TEST-*.xml'
