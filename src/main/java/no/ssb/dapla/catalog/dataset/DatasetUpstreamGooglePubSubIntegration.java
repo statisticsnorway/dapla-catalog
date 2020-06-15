@@ -62,6 +62,12 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
             try (InputStream inputStream = message.getData().newInput()) {
                 dataNode = objectMapper.readTree(inputStream);
             }
+            if (!dataNode.has("parentUri")
+                    || !dataNode.has("dataset-meta")) {
+                LOG.warn("Message IGNORED. Received message with invalid protocol. Missing 'parentUri' and/or 'dataset-meta' fields in json-document.");
+                consumer.ack();
+                return;
+            }
             String parentUri = dataNode.get("parentUri").textValue();
             JsonNode datasetMetaNode = dataNode.get("dataset-meta");
             String metadataJson = objectMapper.writeValueAsString(datasetMetaNode);
