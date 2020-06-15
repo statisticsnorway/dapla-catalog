@@ -130,19 +130,19 @@ jobs:
       - task: SonarQubePrepare@4
       # Task condition: We have community edition of SonarQube which only scans master-branch so
       # it makes no sense running this tag when branch is other than master
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-      inputs:
-        SonarQube: 'bipSonarQube'
-        scannerMode: 'CLI'
-        configMode: 'manual'
-        cliProjectKey: '$(Build.DefinitionName)'
-        cliProjectName: '$(Build.Repository.Name)'
-        cliSources: '.'
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        inputs:
+          SonarQube: 'bipSonarQube'
+          scannerMode: 'CLI'
+          configMode: 'manual'
+          cliProjectKey: '$(Build.DefinitionName)'
+          cliProjectName: '$(Build.Repository.Name)'
+          cliSources: '.'
 
-          - task: SonarQubeAnalyze@4
+      - task: SonarQubeAnalyze@4
       # Task condition: We have community edition of SonarQube which only scans master-branch so
       # it makes no sense running this tag when branch is other than master
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
 
       # Deploy artifact to Nexus
       - task: Maven@3
