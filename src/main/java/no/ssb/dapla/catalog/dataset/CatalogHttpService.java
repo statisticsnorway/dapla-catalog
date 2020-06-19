@@ -46,22 +46,22 @@ public class CatalogHttpService implements Service {
         Span span = tracerAndSpan.span();
         try {
             String finalPathPart = pathPart != null ? pathPart : "";
-            repository.listCatalogs(finalPathPart, limit)
+            repository.listDatasets(finalPathPart, limit)
                     .timeout(5, TimeUnit.SECONDS)
                     .toList()
-                    .subscribe(catalogs -> {
+                    .subscribe(datasets -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
 
-                        ObjectNode jsonCatalogs = objectMapper.createObjectNode();
-                        ArrayNode catalogList = jsonCatalogs.putArray("catalogs");
-                        for (Dataset catalog : catalogs) {
-                            addCatalogToList(catalogList, catalog);
+                        ObjectNode jsonCatalog = objectMapper.createObjectNode();
+                        ArrayNode catalogList = jsonCatalog.putArray("catalogs");
+                        for (Dataset dataset : datasets) {
+                            catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());;
                         }
 
-                        res.send(jsonCatalogs.toString());
+                        res.send(jsonCatalog.toString());
                         span.finish();
                         res.send();
-                        Tracing.traceOutputMessage(span, jsonCatalogs.toString());
+                        Tracing.traceOutputMessage(span, jsonCatalog.toString());
                     }, throwable -> {
                         try {
                             Tracing.restoreTracingContext(tracerAndSpan);
@@ -82,10 +82,5 @@ public class CatalogHttpService implements Service {
         }
     }
 
-    private void addCatalogToList(ArrayNode catalogList, Dataset dataset) {
-        ObjectNode datasetNode = catalogList.addObject();
-        ObjectNode idNode = datasetNode.putObject("id");
-        idNode.put("path", dataset.getId().getPath());
-    }
 
 }
