@@ -52,16 +52,16 @@ public class CatalogHttpService implements Service {
                     .subscribe(datasets -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
 
-                        ObjectNode jsonCatalog = objectMapper.createObjectNode();
-                        ArrayNode catalogList = jsonCatalog.putArray("catalogs");
+                        ObjectNode jsonCatalogs = objectMapper.createObjectNode();
+                        ArrayNode catalogList = jsonCatalogs.putArray("catalogs");
                         for (Dataset dataset : datasets) {
                             catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());;
                         }
 
-                        res.send(jsonCatalog.toString());
+                        res.send(jsonCatalogs.toString());
                         span.finish();
                         res.send();
-                        Tracing.traceOutputMessage(span, jsonCatalog.toString());
+                        Tracing.traceOutputMessage(span, jsonCatalogs.toString());
                     }, throwable -> {
                         try {
                             Tracing.restoreTracingContext(tracerAndSpan);
