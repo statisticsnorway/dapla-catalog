@@ -1,17 +1,23 @@
 package no.ssb.dapla.catalog.dataset;
 
-import io.helidon.webserver.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.helidon.webserver.Routing;
+import io.helidon.webserver.ServerRequest;
+import io.helidon.webserver.ServerResponse;
+import io.helidon.webserver.Service;
 import io.opentracing.Span;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.helidon.application.TracerAndSpan;
 import no.ssb.helidon.application.Tracing;
-import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-import static no.ssb.helidon.application.Tracing.*;
+import static no.ssb.helidon.application.Tracing.logError;
+import static no.ssb.helidon.application.Tracing.spanFromHttp;
 
 public class CatalogHttpService implements Service {
 
@@ -25,35 +31,34 @@ public class CatalogHttpService implements Service {
 
     private final int limit = 100;
 
+    final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     public void update(Routing.Rules rules) {
-        LOG.info("rules: ", rules);
+        LOG.info("rules: {}", rules);
         rules.get("/", this::doGetList);
         rules.get("/{pathPart}", this::doGetList);
     }
 
     private void doGetList(ServerRequest req, ServerResponse res) {
-        LOG.info("doGetAll: ");
         TracerAndSpan tracerAndSpan = spanFromHttp(req, "doGetAll");
         String pathPart = req.path().param("pathPart");
-        LOG.info("doGetAll, pathPart: {}", pathPart);
         Span span = tracerAndSpan.span();
         try {
             String finalPathPart = pathPart != null ? pathPart : "";
-            repository.listCatalogs(finalPathPart, limit)
+            repository.listDatasets(finalPathPart, limit)
                     .timeout(5, TimeUnit.SECONDS)
                     .toList()
-                    .subscribe(catalogs -> {
-                        LOG.info("catalogs: {}", catalogs);
+                    .subscribe(datasets -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
 
-                        StringBuffer jsonCatalogs = new StringBuffer("{ \"catalogs\": [");
-                            for (Dataset catalog : catalogs) {
-                                LOG.info("catalog: {}", catalog);
-                                jsonCatalogs.append(ProtobufJsonUtils.toString(catalog)).append(',');                            }
-                            jsonCatalogs.deleteCharAt(jsonCatalogs.length() - 1);
-                            jsonCatalogs.append("]}");
-                            res.send(jsonCatalogs);
+                        ObjectNode jsonCatalogs = objectMapper.createObjectNode();
+                        ArrayNode catalogList = jsonCatalogs.putArray("catalogs");
+                        for (Dataset dataset : datasets) {
+                            catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());;
+                        }
+
+                        res.send(jsonCatalogs.toString());
                         span.finish();
                         res.send();
                         Tracing.traceOutputMessage(span, jsonCatalogs.toString());
@@ -76,5 +81,6 @@ public class CatalogHttpService implements Service {
             }
         }
     }
+
 
 }
