@@ -59,7 +59,7 @@ variables:
 # builds Docker image, pushes this to GCR and checks for any image vulnerabilities
 jobs:
   - template: jobs/dapla-test-coverage-build-gcr.yml@templates
-    parmeters:
+    parameters:
       imageName: dapla-catalog
 
   # Job which pulls the Docker image with the correct tag (image-scan-tag) from GCR, tags this
