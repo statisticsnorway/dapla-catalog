@@ -64,27 +64,8 @@ jobs:
 
   # Job which pulls the Docker image with the correct tag (image-scan-tag) from GCR, tags this
   # with the git tag, and pushes that back to GCR.
-  # Job triggers only when a tag (which starts with prod-v) was committed to GitHub
-  - job: dockerTagForProd
-    displayName: "Docker tag for production"
-    # Job condition: trigger only on tag that starts with "prod-v"
-    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/prod-v'))
-    steps:
-      # Download file with json-key to GCR as a later task needs to
-      # authenticate to GCR
-      - task: DownloadSecureFile@1
-        name: gcrJsonKey
-        displayName: 'Download gcr creds'
-        inputs:
-          secureFile: 'gcr-key.json'
-      # Fetches the last tag from GitHub (found no other way of doing this) and tags the image
-      - script: |
-          echo "Getting the latest git tag"
-          TAG=`git describe --tags`
-          echo $TAG
-          cat $(gcrJsonKey.secureFilePath) | docker login -u _json_key --password-stdin https://eu.gcr.io
-          docker pull eu.gcr.io/prod-bip/ssb/dapla/dapla-catalog:master-imagescan-$(fullSha)
-          docker tag eu.gcr.io/prod-bip/ssb/dapla/dapla-catalog:master-imagescan-$(fullSha) eu.gcr.io/prod-bip/ssb/dapla/dapla-catalog:$TAG
-          docker push eu.gcr.io/prod-bip/ssb/dapla/dapla-catalog:$TAG
-
-
+  # The job triggers when any tag was committed to GitHub, which means all tags in
+  # the code repo are propagated to the corresponding (newly built) image in GCR.
+  - template: docker/docker-tag-for-production.yml@templates
+    parameters:
+      tagToTag: dapla-catalog
