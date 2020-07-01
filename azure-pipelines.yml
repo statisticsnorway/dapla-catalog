@@ -22,7 +22,7 @@ resources:
     - repository: templates
       type: github
       name: statisticsnorway/azure-pipelines-templates
-      refs: refs/tags/0.0.1
+      ref: refs/tags/0.0.1
       endpoint: statisticsnorway
 
     # Pipeline will be run on this base image
