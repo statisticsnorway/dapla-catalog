@@ -58,8 +58,9 @@ variables:
 # Job which runs mvn test and verify, Sonar Analysis (if branch is master), mvn install,
 # builds Docker image, pushes this to GCR and checks for any image vulnerabilities
 jobs:
-  - template: jobs/dapla-test-coverage-build-gcr.yml@templates
+  - template: complete-builds/job-test-integration-coverage-build-gcr.yml@templates
     parameters:
+      project: dapla
       imageName: dapla-catalog
 
   # Job which pulls the Docker image with the correct tag (image-scan-tag) from GCR, tags this
