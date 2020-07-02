@@ -22,8 +22,7 @@ resources:
     - repository: templates
       type: github
       name: statisticsnorway/azure-pipelines-templates
-      ref: refs/heads/generalize-docker-tag
-#      ref: refs/tags/0.0.3
+      ref: refs/tags/0.0.3
       endpoint: statisticsnorway
 
     # Pipeline will be run on this base image
