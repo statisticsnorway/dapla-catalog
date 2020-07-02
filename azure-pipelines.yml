@@ -22,7 +22,8 @@ resources:
     - repository: templates
       type: github
       name: statisticsnorway/azure-pipelines-templates
-      ref: refs/tags/0.0.2
+      ref: refs/heads/generalize-docker-tag
+#      ref: refs/tags/0.0.3
       endpoint: statisticsnorway
 
     # Pipeline will be run on this base image
@@ -70,3 +71,5 @@ jobs:
   - template: docker/docker-tag-for-production.yml@templates
     parameters:
       tagToTag: dapla-catalog
+      gcrImageName: ${{ variables.imageName }}
+
