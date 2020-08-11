@@ -48,6 +48,10 @@ public class DatasetRepository {
                 .map(Dataset::getId);
     }
 
+    public setOrCreateDirtyPath(String path) {
+
+    }
+
     public Flowable<Dataset> listDatasets(String pathPart, int limit) {
         JsonArray params = new JsonArray().add( (pathPart != null && pathPart.length() >0) ? "%" + pathPart + "%" : "%").add(limit);
         return client
@@ -89,7 +93,7 @@ public class DatasetRepository {
                 .add(jsonDoc)
                 .add(jsonDoc);
         return client
-                .rxUpdateWithParams("INSERT INTO Dataset(path, version, document) VALUES(?, ?, ?) ON CONFLICT (path, version) DO UPDATE SET document = ?", params)
+                .rxUpdateWithParams("INSERT INTO Dataset(path, version, document, is_dirty) VALUES(?, ?, ?, ?) ON CONFLICT (path, version) DO UPDATE SET document = ?", params)
                 .map(UpdateResult::getUpdated);
     }
 

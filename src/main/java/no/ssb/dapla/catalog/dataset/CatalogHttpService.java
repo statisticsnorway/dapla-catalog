@@ -40,6 +40,10 @@ public class CatalogHttpService implements Service {
         rules.get("/{pathPart}", this::doGetList);
     }
 
+    public void setDirty(String path) {
+
+    }
+
     private void doGetList(ServerRequest req, ServerResponse res) {
         TracerAndSpan tracerAndSpan = spanFromHttp(req, "doGetAll");
         String pathPart = req.path().param("pathPart");
