@@ -38,10 +38,41 @@ public class CatalogHttpService implements Service {
         LOG.info("rules: {}", rules);
         rules.get("/", this::doGetList);
         rules.get("/{pathPart}", this::doGetList);
+        rules.put("/pollute/{pathPart}", this::setDirty);
     }
 
-    public void setDirty(String path) {
+    private void setDirty(ServerRequest req, ServerResponse res) {
+        TracerAndSpan tracerAndSpan = spanFromHttp(req, "pollute");
+        String path = req.path().param("path");
+        Span span = tracerAndSpan.span();
+        try {
+            repository.setDirtyPath(path)
+                    .timeout(5, TimeUnit.SECONDS)
+                    .subscribe(success -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
+                        Tracing.traceOutputMessage(span, path);
+                        span.finish();
+                        res.send();
+                        Tracing.traceOutputMessage(span, path);
+                    }, throwable -> {
+                        try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
+                            logError(span, throwable, "error in setting path dirty");
+                            LOG.error(String.format("path='%s'", path), throwable);
+                        } finally {
+                            span.finish();
+                        }
+                    });
 
+        } catch (RuntimeException | Error e) {
+            try {
+                logError(span, e, "top-level error");
+                LOG.error("top-level error", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
     }
 
     private void doGetList(ServerRequest req, ServerResponse res) {

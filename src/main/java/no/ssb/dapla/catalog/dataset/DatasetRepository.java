@@ -48,15 +48,18 @@ public class DatasetRepository {
                 .map(Dataset::getId);
     }
 
-    public setOrCreateDirtyPath(String path) {
-
+    public Single<Integer> setDirtyPath(String path) {
+        JsonArray params = new JsonArray().add( (path != null && path.length() >0) ? "%" + path + "%" : "%");
+        return client
+                .rxUpdateWithParams("update dataset set isdirty = 1 where path LIKE ?", params)
+                .map(UpdateResult::getUpdated);
     }
 
     public Flowable<Dataset> listDatasets(String pathPart, int limit) {
         JsonArray params = new JsonArray().add( (pathPart != null && pathPart.length() >0) ? "%" + pathPart + "%" : "%").add(limit);
         return client
                 .rxQueryStreamWithParams("SELECT DISTINCT ON (path) " +
-                        " path, document FROM Dataset WHERE path LIKE ? " +
+                        " path, document, isDirty FROM Dataset WHERE path LIKE ? " +
                         " ORDER BY path, version DESC " +
                         " LIMIT ?", params)
                 .flatMapPublisher(SQLRowStream::toFlowable)
@@ -93,7 +96,7 @@ public class DatasetRepository {
                 .add(jsonDoc)
                 .add(jsonDoc);
         return client
-                .rxUpdateWithParams("INSERT INTO Dataset(path, version, document, is_dirty) VALUES(?, ?, ?, ?) ON CONFLICT (path, version) DO UPDATE SET document = ?", params)
+                .rxUpdateWithParams("INSERT INTO Dataset(path, version, document) VALUES(?, ?, ?) ON CONFLICT (path, version) DO UPDATE SET document = ?", params)
                 .map(UpdateResult::getUpdated);
     }
 
