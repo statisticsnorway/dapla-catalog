@@ -239,7 +239,6 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                     .timeout(5, TimeUnit.SECONDS)
                     .subscribe(success -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
-                        responseObserver.onNext(traceOutputMessage(span, PolluteDatasetResponse.getDefaultInstance()));
                         responseObserver.onCompleted();
                         span.finish();
                     }, throwable -> {
