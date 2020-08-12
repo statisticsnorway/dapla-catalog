@@ -13,16 +13,7 @@ import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.auth.dataset.protobuf.Privilege;
-import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
-import no.ssb.dapla.catalog.protobuf.Dataset;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixRequest;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
-import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.*;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import no.ssb.helidon.application.TracerAndSpan;
@@ -237,5 +228,39 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                 span.finish();
             }
         }
+    }
+
+    @Override
+    public void pollute(PolluteDatasetRequest request, StreamObserver<PolluteDatasetResponse> responseObserver){
+        TracerAndSpan tracerAndSpan = spanFromGrpc(request, "pollute");
+        Span span = tracerAndSpan.span();
+        try {
+            repository.setPathDirty(request.getPath(), Dataset.IsDirty.DIRTY)
+                    .timeout(5, TimeUnit.SECONDS)
+                    .subscribe(success -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
+                        responseObserver.onNext(traceOutputMessage(span, PolluteDatasetResponse.getDefaultInstance()));
+                        responseObserver.onCompleted();
+                        span.finish();
+                    }, throwable -> {
+                        try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
+                            logError(span, throwable, "eerror in repository.pollute()");
+                            LOG.error(String.format("repository.pollute(): dataset-path='%s'", request.getPath(), throwable));
+                            responseObserver.onError(throwable);
+                        } finally {
+                            span.finish();
+                        }
+                    });
+        } catch (RuntimeException | Error e) {
+            try {
+                logError(span, e, "top-level error");
+                LOG.error("top-level error", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
+
     }
 }

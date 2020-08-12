@@ -7,19 +7,7 @@ import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.CatalogApplication;
-import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
-import no.ssb.dapla.catalog.protobuf.Dataset;
-import no.ssb.dapla.catalog.protobuf.DatasetId;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixRequest;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
-import no.ssb.dapla.catalog.protobuf.PseudoConfig;
-import no.ssb.dapla.catalog.protobuf.SaveDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.SaveDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
+import no.ssb.dapla.catalog.protobuf.*;
 import no.ssb.testing.helidon.GrpcMockRegistry;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
@@ -93,6 +81,10 @@ class CatalogGrpcServiceTest {
 
     ListByPrefixResponse listByPrefix(String prefix, int limit) {
         return CatalogServiceGrpc.newBlockingStub(channel).listByPrefix(ListByPrefixRequest.newBuilder().setPrefix(prefix).setLimit(limit).build());
+    }
+
+    PolluteDatasetResponse pollute(String path) {
+        return CatalogServiceGrpc.newBlockingStub(channel).pollute(PolluteDatasetRequest.newBuilder().setPath(path).build());
     }
 
     @Test
@@ -280,5 +272,19 @@ class CatalogGrpcServiceTest {
         Assertions.assertThrows(StatusRuntimeException.class, () -> {
             save(ds1, "b-user");
         });
+    }
+
+    @Test
+    void thatPolluteWorks() {
+        Dataset dataset = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath("dataset_to_change").build())
+                .setValuation(Dataset.Valuation.OPEN)
+                .setState(Dataset.DatasetState.RAW)
+                .setParentUri("f")
+                .setIsDirty(Dataset.IsDirty.CLEAN)
+                .build();
+        repositoryCreate(dataset);
+        pollute(dataset.getId().getPath());
+        assertThat(repositoryGet("dataset_to_change").getIsDirty()).isEqualTo(Dataset.IsDirty.DIRTY);
     }
 }
