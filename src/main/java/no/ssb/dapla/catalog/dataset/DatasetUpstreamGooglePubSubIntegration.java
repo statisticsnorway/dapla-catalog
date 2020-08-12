@@ -86,6 +86,7 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
             repository.create(dataset)
                     .doOnSuccess(rowsUpdated -> {
                         consumer.ack();
+                        repository.setPathDirty(datasetMeta.getId().getPath(), Dataset.IsDirty.CLEAN);
                         LOG.trace("Saved Dataset. json='{}'", ProtobufJsonUtils.toString(dataset));
                     })
                     .doOnError(throwable -> LOG.error("Error while processing message, waiting for ack deadline before re-delivery", throwable))

@@ -47,7 +47,7 @@ public class CatalogHttpService implements Service {
         String path = req.queryParams().first("path").toString();
         Span span = tracerAndSpan.span();
         try {
-            repository.setPathDirty(path)
+            repository.setPathDirty(path, Dataset.IsDirty.DIRTY)
                     .timeout(5, TimeUnit.SECONDS)
                     .subscribe(success -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
