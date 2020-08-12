@@ -48,10 +48,10 @@ public class DatasetRepository {
                 .map(Dataset::getId);
     }
 
-    public Single<Integer> setDirtyPath(String path) {
-        JsonArray params = new JsonArray().add( (path != null && path.length() >0) ? "%" + path + "%" : "%");
+    public Single<Integer> setPathDirty(String path) {
+        JsonArray params = new JsonArray().add(path);
         return client
-                .rxUpdateWithParams("update dataset set isdirty = 1 where path LIKE ?", params)
+                .rxUpdateWithParams("update dataset set isDirty = 1 where path = ?", params)
                 .map(UpdateResult::getUpdated);
     }
 

@@ -92,4 +92,10 @@ class CatalogHttpServiceTest {
 
         assertEquals(expected, actual);
     }
+
+    @Test
+    void thatCatalogSetPathDirty() {
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path1").build()).build());
+        client.post("/catalog/pollute?path=/path1").expect200Ok();
+    }
 }

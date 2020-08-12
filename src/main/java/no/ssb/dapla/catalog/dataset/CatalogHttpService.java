@@ -38,22 +38,22 @@ public class CatalogHttpService implements Service {
         LOG.info("rules: {}", rules);
         rules.get("/", this::doGetList);
         rules.get("/{pathPart}", this::doGetList);
-        rules.put("/pollute/{pathPart}", this::setDirty);
+        rules.post("/pollute", this::setDirty);
+
     }
 
     private void setDirty(ServerRequest req, ServerResponse res) {
         TracerAndSpan tracerAndSpan = spanFromHttp(req, "pollute");
-        String path = req.path().param("path");
+        String path = req.queryParams().first("path").toString();
         Span span = tracerAndSpan.span();
         try {
-            repository.setDirtyPath(path)
+            repository.setPathDirty(path)
                     .timeout(5, TimeUnit.SECONDS)
                     .subscribe(success -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
                         Tracing.traceOutputMessage(span, path);
                         span.finish();
                         res.send();
-                        Tracing.traceOutputMessage(span, path);
                     }, throwable -> {
                         try {
                             Tracing.restoreTracingContext(tracerAndSpan);
