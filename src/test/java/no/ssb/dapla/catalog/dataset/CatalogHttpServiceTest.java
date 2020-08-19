@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.CatalogApplication;
+import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.testing.helidon.IntegrationTestExtension;
@@ -13,8 +15,6 @@ import no.ssb.testing.helidon.TestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.util.concurrent.TimeUnit;
@@ -31,9 +31,15 @@ class CatalogHttpServiceTest {
     @Inject
     TestClient client;
 
+    @Inject
+    AuthServiceGrpc.AuthServiceFutureStub authServiceFutureStub;
+
+
     @BeforeEach
     public void beforeEach() {
         application.get(DatasetRepository.class).deleteAllDatasets().blockingGet();
+
+
     }
 
     void repositoryCreate(Dataset dataset) {
@@ -91,5 +97,16 @@ class CatalogHttpServiceTest {
         catalogs.addObject().putObject("id").put("path", "/path3/dataset32");
 
         assertEquals(expected, actual);
+    }
+
+    @Test
+    void thatCatalogSaveDataset() {
+        Dataset dataset = Dataset.newBuilder().build();
+        SignedDataset signedDataset = SignedDataset.newBuilder()
+                .setDataset(dataset)
+                .setUserId("user")
+                .build();
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path1").build()).build());
+        client.post("/catalog/save", signedDataset).expect200Ok();
     }
 }

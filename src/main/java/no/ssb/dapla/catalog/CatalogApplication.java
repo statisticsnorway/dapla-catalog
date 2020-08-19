@@ -37,6 +37,9 @@ import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -85,7 +88,28 @@ public class CatalogApplication extends DefaultHelidonApplication {
         migrateDatabaseSchema(config.get("flyway"));
 
         DatasetRepository repository = new DatasetRepository(sqlClient);
+
         put(DatasetRepository.class, repository);
+
+
+        CatalogSignatureVerifier catalogSignatureVerifier;
+        Config signerConfig = config.get("catalogds");
+        if (signerConfig.get("bypass-validation").asBoolean().orElse(false)) {
+            catalogSignatureVerifier = (data, receivedSign) -> true; // always accept signature
+        } else {
+            String keystoreFormat = signerConfig.get("format").asString().get();
+            String keystore = signerConfig.get("keystore").asString().get();
+            String keyAlias = signerConfig.get("keyAlias").asString().get();
+            char[] password = signerConfig.get("password-file").asString()
+                    .filter(s -> !s.isBlank())
+                    .map(passwordFile -> Path.of(passwordFile))
+                    .filter(Files::exists)
+                    .map(CatalogApplication::readPasswordFromFile)
+                    .orElseGet(() -> signerConfig.get("password").asString().get().toCharArray());
+            String algorithm = signerConfig.get("algorithm").asString().get();
+            catalogSignatureVerifier = new DefaultCatalogSignatureVerifier(keystoreFormat, keystore, keyAlias, password, algorithm);
+        }
+        put(CatalogSignatureVerifier.class, catalogSignatureVerifier);
 
         if (config.get("pubsub.enabled").asBoolean().orElse(false)) {
             LOG.info("Running with PubSub enabled");
@@ -142,7 +166,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(health)
-                .register("/catalog", new CatalogHttpService(repository))
+                .register("/catalog", new CatalogHttpService(repository, catalogSignatureVerifier, authService))
                 .register("/rpc", new HelidonGrpcWebTranscoding(
                         () -> ManagedChannelBuilder
                                 .forAddress("localhost", Optional.of(grpcServer)
@@ -195,6 +219,14 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 LOG.info("PubSub running with the default google credentials provider");
                 return RealPubSub.createWithDefaultCredentials();
             }
+        }
+    }
+
+    private static char[] readPasswordFromFile(Path passwordPath) {
+        try {
+            return Files.readString(passwordPath).toCharArray();
+        } catch (IOException e) {
+            return null;
         }
     }
 
