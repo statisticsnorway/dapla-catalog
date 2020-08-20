@@ -35,15 +35,9 @@ class CatalogHttpServiceTest {
     @Inject
     TestClient client;
 
-    @Inject
-    AuthServiceGrpc.AuthServiceFutureStub authServiceFutureStub;
-
-
     @BeforeEach
     public void beforeEach() {
         application.get(DatasetRepository.class).deleteAllDatasets().blockingGet();
-
-
     }
 
     void repositoryCreate(Dataset dataset) {

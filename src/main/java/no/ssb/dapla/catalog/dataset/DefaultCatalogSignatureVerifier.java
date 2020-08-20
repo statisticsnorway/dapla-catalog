@@ -29,7 +29,6 @@ public class DefaultCatalogSignatureVerifier implements CatalogSignatureVerifier
     @Override
     public boolean verify(byte[] data, byte[] receivedSign) {
         try {
-            System.out.println("verify signature");
             signature.update(data);
             return signature.verify(receivedSign);
         } catch (SignatureException e) {

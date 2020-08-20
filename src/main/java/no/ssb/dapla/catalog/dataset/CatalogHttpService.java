@@ -68,7 +68,6 @@ public class CatalogHttpService implements Service {
             byte[] datasetMetaBytes = signedDataset.getDatasetMetaBytes().toByteArray();
 
             boolean verified = verifier.verify(datasetMetaBytes, signatureBytes);
-            System.out.println("verify result:"+verified);
             if (verified) {
                 AccessCheckRequest checkRequest = AccessCheckRequest.newBuilder()
                         .setUserId(userId)
