@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.protobuf.ByteString;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.CatalogApplication;
+import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
@@ -103,18 +105,27 @@ class CatalogHttpServiceTest {
     void thatCatalogSaveDataset() {
         CatalogSigner metadataSigner = new CatalogSigner("PKCS12", "src/test/resources/metadata-signer_keystore.p12",
                 "dataAccessKeyPair", "changeit".toCharArray(), "SHA256withRSA");
-        byte[] signature = metadataSigner.sign(validMetadataJson.toByteArray());
-        writeContentToFile(dataFolder, datasetMeta, ".dataset-meta.json.sign", signature);
-        String metadataSignaturePath = datasetMeta.getId().getPath() + "/" + datasetMeta.getId().getVersion() + "/.dataset-meta.json.sign";
 
-        Dataset dataset = Dataset.newBuilder().build();
+        Dataset dataset = createDataset(0);
+        byte[] signature = metadataSigner.sign(dataset.toByteArray());
+        byte[] datasetMetaBytes = dataset.toByteArray();
         SignedDataset signedDataset = SignedDataset.newBuilder()
                 .setDataset(dataset)
                 .setUserId("user")
+                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
+                .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
                 .build();
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path1").build()).build());
         client.post("/catalog/save", signedDataset).expect200Ok();
     }
 
-
+    private Dataset createDataset(int i) {
+        String path = "/path/to/dataset-" + i;
+        return Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath(path).build())
+                .setType(Dataset.Type.BOUNDED)
+                .setValuation(Dataset.Valuation.OPEN)
+                .setState(Dataset.DatasetState.INPUT)
+                .setPseudoConfig(PseudoConfig.newBuilder().build())
+                .build();
+    }
 }
