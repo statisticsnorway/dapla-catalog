@@ -11,7 +11,7 @@ class DefaultMetadataSignatureVerifierTest {
 
     DefaultCatalogSignatureVerifier catalogSignatureVerifier = new DefaultCatalogSignatureVerifier(
             "PKCS12",
-            "src/test/resources/metadata-verifier_keystore.p12",
+            "src/test/resources/catalog-verifier_keystore.p12",
             "dataAccessCertificate",
             "changeit".toCharArray(),
             "SHA256withRSA"

@@ -105,7 +105,7 @@ class CatalogHttpServiceTest {
 
     @Test
     void thatCatalogSaveDataset() {
-        CatalogSigner metadataSigner = new CatalogSigner("PKCS12", "src/test/resources/metadata-signer_keystore.p12",
+        CatalogSigner metadataSigner = new CatalogSigner("PKCS12", "src/test/resources/catalog-signer_keystore.p12",
                 "dataAccessKeyPair", "changeit".toCharArray(), "SHA256withRSA");
 
         Dataset dataset = createDataset(0);
