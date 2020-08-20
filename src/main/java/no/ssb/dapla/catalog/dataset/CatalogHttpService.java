@@ -7,7 +7,11 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.helidon.webserver.*;
+import io.helidon.webserver.Routing;
+import io.helidon.webserver.ServerRequest;
+import io.helidon.webserver.ServerResponse;
+import io.helidon.webserver.Service;
+import io.helidon.webserver.Handler;
 import io.opentracing.Span;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
@@ -57,8 +61,6 @@ public class CatalogHttpService implements Service {
     private void writeDataset(ServerRequest req, ServerResponse res, SignedDataset signedDataset) {
         TracerAndSpan tracerAndSpan = spanFromHttp(req, "writeDataset");
         Span span = tracerAndSpan.span();
-        System.out.println("=====");
-        System.out.println("user id:"+signedDataset.getUserId()+" sinagure:"+signedDataset.getDatasetMetaSignatureBytes());
         try {
             String userId = signedDataset.getUserId();
             Dataset dataset = signedDataset.getDataset();

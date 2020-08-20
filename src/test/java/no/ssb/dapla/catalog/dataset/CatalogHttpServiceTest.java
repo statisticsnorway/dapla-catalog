@@ -111,14 +111,12 @@ class CatalogHttpServiceTest {
         Dataset dataset = createDataset(0);
         byte[] signature = metadataSigner.sign(dataset.toByteArray());
         byte[] datasetMetaBytes = dataset.toByteArray();
-        System.out.println("signature  "+signature.toString());
         SignedDataset signedDataset = SignedDataset.newBuilder()
                 .setDataset(dataset)
                 .setUserId("user")
                 .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
                 .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
                 .build();
-        System.out.println("send post");
         client.post("/catalog/save", signedDataset).expect200Ok();
     }
 
