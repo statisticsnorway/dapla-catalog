@@ -105,7 +105,7 @@ public class CatalogHttpService implements Service {
                                         }
                                     });
                         } else {
-                            //TODO handle access check failed
+                            res.status(403).send(String.format("user $s is forbiddend to write to the dataset.", userId));
                             span.finish();
                         }
                     }
@@ -124,7 +124,7 @@ public class CatalogHttpService implements Service {
                     }
                 }, MoreExecutors.directExecutor());
             } else {
-                res.status(401).send("dataset verification failed.");
+                res.status(401).send("Signature Unauthorized.");
             }
 
         } catch (RuntimeException | Error e) {

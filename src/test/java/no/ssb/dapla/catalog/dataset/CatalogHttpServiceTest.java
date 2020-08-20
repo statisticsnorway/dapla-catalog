@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
-import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.catalog.CatalogApplication;
 import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SignedDataset;
@@ -105,6 +104,8 @@ class CatalogHttpServiceTest {
         Dataset dataset = createDataset(0);
         byte[] signature = metadataSigner.sign(dataset.toByteArray());
         byte[] datasetMetaBytes = dataset.toByteArray();
+
+        //Authorized user
         SignedDataset signedDataset = SignedDataset.newBuilder()
                 .setDataset(dataset)
                 .setUserId("user")
@@ -112,6 +113,24 @@ class CatalogHttpServiceTest {
                 .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
                 .build();
         client.post("/catalog/save", signedDataset).expect200Ok();
+
+        // Unauthorized user
+        SignedDataset signedDataset1 = SignedDataset.newBuilder()
+                .setDataset(dataset)
+                .setUserId("user1")
+                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
+                .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
+                .build();
+        client.post("/catalog/save", signedDataset1).expect403Forbidden();
+
+        SignedDataset signedDataset2 = SignedDataset.newBuilder()
+                .setDataset(dataset)
+                .setUserId("user")
+                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
+                .setDatasetMetaSignatureBytes(ByteString.copyFrom("fake_signature".getBytes()))
+                .build();
+        client.post("/catalog/save", signedDataset2).expect401Unauthorized();
+
     }
 
     private Dataset createDataset(int i) {
