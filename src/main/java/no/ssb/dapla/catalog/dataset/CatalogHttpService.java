@@ -57,6 +57,8 @@ public class CatalogHttpService implements Service {
     private void writeDataset(ServerRequest req, ServerResponse res, SignedDataset signedDataset) {
         TracerAndSpan tracerAndSpan = spanFromHttp(req, "writeDataset");
         Span span = tracerAndSpan.span();
+        System.out.println("=====");
+        System.out.println("user id:"+signedDataset.getUserId()+" sinagure:"+signedDataset.getDatasetMetaSignatureBytes());
         try {
             String userId = signedDataset.getUserId();
             Dataset dataset = signedDataset.getDataset();
@@ -64,6 +66,7 @@ public class CatalogHttpService implements Service {
             byte[] datasetMetaBytes = signedDataset.getDatasetMetaBytes().toByteArray();
 
             boolean verified = verifier.verify(datasetMetaBytes, signatureBytes);
+            System.out.println("verify result:"+verified);
             if (verified) {
                 AccessCheckRequest checkRequest = AccessCheckRequest.newBuilder()
                         .setUserId(userId)
