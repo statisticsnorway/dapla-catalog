@@ -101,6 +101,12 @@ class CatalogHttpServiceTest {
 
     @Test
     void thatCatalogSaveDataset() {
+        CatalogSigner metadataSigner = new CatalogSigner("PKCS12", "src/test/resources/metadata-signer_keystore.p12",
+                "dataAccessKeyPair", "changeit".toCharArray(), "SHA256withRSA");
+        byte[] signature = metadataSigner.sign(validMetadataJson.toByteArray());
+        writeContentToFile(dataFolder, datasetMeta, ".dataset-meta.json.sign", signature);
+        String metadataSignaturePath = datasetMeta.getId().getPath() + "/" + datasetMeta.getId().getVersion() + "/.dataset-meta.json.sign";
+
         Dataset dataset = Dataset.newBuilder().build();
         SignedDataset signedDataset = SignedDataset.newBuilder()
                 .setDataset(dataset)
@@ -109,4 +115,6 @@ class CatalogHttpServiceTest {
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path1").build()).build());
         client.post("/catalog/save", signedDataset).expect200Ok();
     }
+
+
 }
