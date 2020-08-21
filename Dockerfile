@@ -21,7 +21,6 @@ COPY target/catalog-service*.jar /app/lib/
 COPY target/classes/logback.xml /app/conf/
 COPY target/classes/logback-bip.xml /app/conf/
 COPY target/classes/application.yaml /app/conf/
-COPY src/test/resources/catalog-verifier_keystore.p12 /app/secret/
 
 ENV PATH=/jdk/bin:$PATH
 
