@@ -14,6 +14,7 @@ import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.TestClient;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,8 @@ class CatalogHttpServiceTest {
 
     @Inject
     TestClient client;
+
+    String char256 = "fake_signature_of_256_lengthdapla_testing_fake_sinagure of 228 characters length is a long string of chars that is used for testing a fake signature of not importance, ... now it is already 165 chars and i only need to create another 10s of chars to fill .";
 
     @BeforeEach
     public void beforeEach() {
@@ -127,9 +130,9 @@ class CatalogHttpServiceTest {
                 .setDataset(dataset)
                 .setUserId("user")
                 .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
-                .setDatasetMetaSignatureBytes(ByteString.copyFrom("fake_signature".getBytes()))
+                .setDatasetMetaSignatureBytes(ByteString.copyFrom(char256.getBytes()))
                 .build();
-        client.post("/catalog/save", signedDataset2).expect401Unauthorized();
+        Assertions.assertEquals(client.post("/catalog/save", signedDataset2).response().statusCode(), 401);
 
     }
 
