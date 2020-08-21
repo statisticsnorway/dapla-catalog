@@ -115,7 +115,7 @@ class CatalogHttpServiceTest {
                 .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
                 .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
                 .build();
-        client.post("/catalog/save", signedDataset).expect200Ok();
+        client.post("/catalog/write", signedDataset).expect200Ok();
 
         // Unauthorized user
         SignedDataset signedDataset1 = SignedDataset.newBuilder()
@@ -124,7 +124,7 @@ class CatalogHttpServiceTest {
                 .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
                 .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
                 .build();
-        client.post("/catalog/save", signedDataset1).expect403Forbidden();
+        client.post("/catalog/write", signedDataset1).expect403Forbidden();
 
         SignedDataset signedDataset2 = SignedDataset.newBuilder()
                 .setDataset(dataset)
@@ -132,7 +132,7 @@ class CatalogHttpServiceTest {
                 .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
                 .setDatasetMetaSignatureBytes(ByteString.copyFrom(char256.getBytes()))
                 .build();
-        Assertions.assertEquals(client.post("/catalog/save", signedDataset2).response().statusCode(), 401);
+        Assertions.assertEquals(client.post("/catalog/write", signedDataset2).response().statusCode(), 401);
 
     }
 

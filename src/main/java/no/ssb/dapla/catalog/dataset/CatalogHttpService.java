@@ -54,7 +54,7 @@ public class CatalogHttpService implements Service {
         LOG.info("rules: {}", rules);
         rules.get("/", this::doGetList);
         rules.get("/{pathPart}", this::doGetList);
-        rules.post("/save", Handler.create(SignedDataset.class, this::writeDataset));
+        rules.post("/write", Handler.create(SignedDataset.class, this::writeDataset));
     }
 
 
