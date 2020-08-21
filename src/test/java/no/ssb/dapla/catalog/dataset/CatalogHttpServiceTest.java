@@ -126,6 +126,7 @@ class CatalogHttpServiceTest {
                 .build();
         client.post("/catalog/write", signedDataset1).expect403Forbidden();
 
+        // fake signature
         SignedDataset signedDataset2 = SignedDataset.newBuilder()
                 .setDataset(dataset)
                 .setUserId("user")
