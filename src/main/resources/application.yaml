@@ -85,6 +85,6 @@ catalogds:
   bypass-validation: true
   format: PKCS12
   keystore: secret/catalog-verifier_keystore.p12
-  keyAlias: dataAccessCertificate
+  keyAlias: catalogCertificate
   password: changeit
   algorithm: SHA256withRSA
