@@ -105,7 +105,7 @@ public class CatalogHttpService implements Service {
                                         }
                                     });
                         } else {
-                            res.status(403).send(String.format("user $s is forbidden to write to the dataset.", userId));
+                            res.status(403).send(String.format("user '$s' is forbidden to write to the dataset.", userId));
                             span.finish();
                         }
                     }
