@@ -80,3 +80,11 @@ pubsub:
     projectId: dapla
     topic: catalog-1
     subscription: catalog-dev
+
+catalogds:
+  bypass-validation: true
+  format: PKCS12
+  keystore: secret/metadata-verifier_keystore.p12
+  keyAlias: dataAccessCertificate
+  password: changeit
+  algorithm: SHA256withRSA

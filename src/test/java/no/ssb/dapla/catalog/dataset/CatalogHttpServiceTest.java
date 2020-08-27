@@ -5,16 +5,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.protobuf.ByteString;
 import no.ssb.dapla.catalog.CatalogApplication;
+import no.ssb.dapla.catalog.protobuf.PseudoConfig;
+import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.TestClient;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +32,8 @@ class CatalogHttpServiceTest {
 
     @Inject
     TestClient client;
+
+    String char256 = "fake_signature_of_256_lengthdapla_testing_fake_sinagure of 228 characters length is a long string of chars that is used for testing a fake signature of not importance, ... now it is already 165 chars and i only need to create another 10s of chars to fill .";
 
     @BeforeEach
     public void beforeEach() {
@@ -91,5 +95,45 @@ class CatalogHttpServiceTest {
         catalogs.addObject().putObject("id").put("path", "/path3/dataset32");
 
         assertEquals(expected, actual);
+    }
+
+    @Test
+    void thatCatalogSaveDataset() {
+        MetadataSigner metadataSigner = new MetadataSigner("PKCS12", "src/test/resources/metadata-signer_keystore.p12",
+                "dataAccessKeyPair", "changeit".toCharArray(), "SHA256withRSA");
+
+        Dataset dataset = createDataset(0);
+        byte[] signature = metadataSigner.sign(dataset.toByteArray());
+        byte[] datasetMetaBytes = dataset.toByteArray();
+
+        //Authorized user
+        SignedDataset signedDataset = SignedDataset.newBuilder()
+                .setDataset(dataset)
+                .setUserId("user")
+                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
+                .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
+                .build();
+        client.post("/catalog/write", signedDataset).expect200Ok();
+
+        // fake signature
+        SignedDataset signedDataset2 = SignedDataset.newBuilder()
+                .setDataset(dataset)
+                .setUserId("user")
+                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
+                .setDatasetMetaSignatureBytes(ByteString.copyFrom(char256.getBytes()))
+                .build();
+        Assertions.assertEquals(client.post("/catalog/write", signedDataset2).response().statusCode(), 401);
+
+    }
+
+    private Dataset createDataset(int i) {
+        String path = "/path/to/dataset-" + i;
+        return Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath(path).build())
+                .setType(Dataset.Type.BOUNDED)
+                .setValuation(Dataset.Valuation.OPEN)
+                .setState(Dataset.DatasetState.INPUT)
+                .setPseudoConfig(PseudoConfig.newBuilder().build())
+                .build();
     }
 }

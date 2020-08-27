@@ -7,7 +7,9 @@ import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
+import io.helidon.webserver.Handler;
 import io.opentracing.Span;
+import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.helidon.application.TracerAndSpan;
 import no.ssb.helidon.application.Tracing;
@@ -22,11 +24,12 @@ import static no.ssb.helidon.application.Tracing.spanFromHttp;
 public class CatalogHttpService implements Service {
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogHttpService.class);
-
+    final CatalogSignatureVerifier verifier;
     final DatasetRepository repository;
 
-    public CatalogHttpService(DatasetRepository repository) {
+    public CatalogHttpService(DatasetRepository repository, CatalogSignatureVerifier verifier) {
         this.repository = repository;
+        this.verifier = verifier;
     }
 
     private final int limit = 100;
@@ -38,6 +41,52 @@ public class CatalogHttpService implements Service {
         LOG.info("rules: {}", rules);
         rules.get("/", this::doGetList);
         rules.get("/{pathPart}", this::doGetList);
+        rules.post("/write", Handler.create(SignedDataset.class, this::writeDataset));
+    }
+
+
+    private void writeDataset(ServerRequest req, ServerResponse res, SignedDataset signedDataset) {
+        TracerAndSpan tracerAndSpan = spanFromHttp(req, "writeDataset");
+        Span span = tracerAndSpan.span();
+        try {
+            String userId = signedDataset.getUserId();
+            Dataset dataset = signedDataset.getDataset();
+            byte[] signatureBytes = signedDataset.getDatasetMetaSignatureBytes().toByteArray();
+            byte[] datasetMetaBytes = signedDataset.getDatasetMetaBytes().toByteArray();
+
+            boolean verified = verifier.verify(datasetMetaBytes, signatureBytes);
+            if (verified) {
+                repository.create(dataset)
+                        .timeout(5, TimeUnit.SECONDS)
+                        .subscribe(updatedCount -> {
+                            Tracing.restoreTracingContext(tracerAndSpan);
+
+                            res.send();
+                            span.finish();
+                        }, throwable -> {
+                            try {
+                                Tracing.restoreTracingContext(tracerAndSpan);
+                                logError(span, throwable, "error in repository.create()");
+                                LOG.error(String.format("repository.create(): dataset-id='%s'", dataset.getId().getPath()), throwable);
+                                res.status(505).send();
+                            } finally {
+                                span.finish();
+                            }
+                        });
+
+            } else {
+                res.status(401).send("Signature Unauthorized.");
+            }
+
+        } catch (RuntimeException | Error e) {
+            try {
+                logError(span, e, "top-level error");
+                LOG.error("top-level error", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
     }
 
     private void doGetList(ServerRequest req, ServerResponse res) {
