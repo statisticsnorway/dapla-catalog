@@ -31,7 +31,7 @@ pubsub:
 catalogds:
   bypass-validation: false
   format: PKCS12
-  keystore: src/test/resources/catalog-verifier_keystore.p12
-  keyAlias: catalogCertificate
+  keystore: src/test/resources/metadata-verifier_keystore.p12
+  keyAlias: dataAccessCertificate
   password: changeit
   algorithm: SHA256withRSA

@@ -166,7 +166,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(health)
-                .register("/catalog", new CatalogHttpService(repository, catalogSignatureVerifier, authService))
+                .register("/catalog", new CatalogHttpService(repository, catalogSignatureVerifier))
                 .register("/rpc", new HelidonGrpcWebTranscoding(
                         () -> ManagedChannelBuilder
                                 .forAddress("localhost", Optional.of(grpcServer)

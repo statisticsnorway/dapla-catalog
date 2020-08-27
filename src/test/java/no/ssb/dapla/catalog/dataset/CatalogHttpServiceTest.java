@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
-@GrpcMockRegistryConfig(DataAccessGrpcMockRegistry.class)
 @ExtendWith(IntegrationTestExtension.class)
 class CatalogHttpServiceTest {
 
@@ -101,8 +100,8 @@ class CatalogHttpServiceTest {
 
     @Test
     void thatCatalogSaveDataset() {
-        CatalogSigner metadataSigner = new CatalogSigner("PKCS12", "src/test/resources/catalog-signer_keystore.p12",
-                "catalogKeyPair", "changeit".toCharArray(), "SHA256withRSA");
+        CatalogSigner metadataSigner = new CatalogSigner("PKCS12", "src/test/resources/metadata-signer_keystore.p12",
+                "dataAccessKeyPair", "changeit".toCharArray(), "SHA256withRSA");
 
         Dataset dataset = createDataset(0);
         byte[] signature = metadataSigner.sign(dataset.toByteArray());
@@ -116,15 +115,6 @@ class CatalogHttpServiceTest {
                 .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
                 .build();
         client.post("/catalog/write", signedDataset).expect200Ok();
-
-        // Unauthorized user
-        SignedDataset signedDataset1 = SignedDataset.newBuilder()
-                .setDataset(dataset)
-                .setUserId("user1")
-                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
-                .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
-                .build();
-        client.post("/catalog/write", signedDataset1).expect403Forbidden();
 
         // fake signature
         SignedDataset signedDataset2 = SignedDataset.newBuilder()

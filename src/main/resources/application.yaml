@@ -84,7 +84,7 @@ pubsub:
 catalogds:
   bypass-validation: true
   format: PKCS12
-  keystore: secret/catalog-verifier_keystore.p12
-  keyAlias: catalogCertificate
+  keystore: secret/metadata-verifier_keystore.p12
+  keyAlias: dataAccessCertificate
   password: changeit
   algorithm: SHA256withRSA
