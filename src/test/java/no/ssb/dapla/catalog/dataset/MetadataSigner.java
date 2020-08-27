@@ -6,10 +6,10 @@ import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 
-public class CatalogSigner {
+public class MetadataSigner {
     final Signature signer;
     final Signature verifier;
-    public CatalogSigner(String keystoreFormat, String keystorePath, String keyAlias, char[] password, String algorithm) {
+    public MetadataSigner(String keystoreFormat, String keystorePath, String keyAlias, char[] password, String algorithm) {
         try {
             KeyStore keyStore = KeyStore.getInstance(keystoreFormat);
             keyStore.load(new FileInputStream(keystorePath), password);

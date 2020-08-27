@@ -11,7 +11,6 @@ import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
-import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.TestClient;
 import org.junit.jupiter.api.Assertions;
@@ -100,7 +99,7 @@ class CatalogHttpServiceTest {
 
     @Test
     void thatCatalogSaveDataset() {
-        CatalogSigner metadataSigner = new CatalogSigner("PKCS12", "src/test/resources/metadata-signer_keystore.p12",
+        MetadataSigner metadataSigner = new MetadataSigner("PKCS12", "src/test/resources/metadata-signer_keystore.p12",
                 "dataAccessKeyPair", "changeit".toCharArray(), "SHA256withRSA");
 
         Dataset dataset = createDataset(0);
