@@ -22,7 +22,7 @@ resources:
     - repository: templates
       type: github
       name: statisticsnorway/azure-pipelines-templates
-      ref: refs/tags/0.0.3
+      ref: refs/heads/feature/retag-imagescan
       endpoint: statisticsnorway (6)
 
     # Pipeline will be run on this base image
@@ -61,7 +61,9 @@ jobs:
   - template: complete-builds/job-test-integration-coverage-build-gcr.yml@templates
     parameters:
       project: dapla
-      imageName: dapla-catalog
+      imageName: $(imageName)
+      repoName: $(repoName)
+      artifactName: dapla-catalog
 
   # Job which pulls the Docker image with the correct tag (image-scan-tag) from GCR, tags this
   # with the git tag, and pushes that back to GCR.
