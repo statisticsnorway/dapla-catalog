@@ -63,10 +63,13 @@ jobs:
     # Starting a postgres service for testing
     services:
       postgres: postgres_container_for_tests
-    - template: complete-builds/job-test-integration-coverage-build-gcr.yml@templates
-      parameters:
-        project: dapla
-        imageName: dapla-catalog
+
+    steps:
+
+      - template: complete-builds/job-test-integration-coverage-build-gcr.yml@templates
+        parameters:
+          project: dapla
+          imageName: dapla-catalog
 
   # Job which pulls the Docker image with the correct tag (image-scan-tag) from GCR, tags this
   # with the git tag, and pushes that back to GCR.
