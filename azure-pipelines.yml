@@ -10,20 +10,20 @@ trigger:
 
 resources:
   containers:
-  - container: 'postgres_container_for_tests'
-    image: 'postgres:12-alpine'
-    ports:
-      - 10112:5432
-    env:
-      POSTGRES_DB: $(IntegrationTests.Database.Name)
-      POSTGRES_USER: $(IntegrationTests.Database.Username)
-      POSTGRES_PASSWORD: $(IntegrationTests.Database.Password)
+    - container: 'postgres_container_for_tests'
+      image: 'postgres:12-alpine'
+      ports:
+        - 10112:5432
+      env:
+        POSTGRES_DB: $(IntegrationTests.Database.Name)
+        POSTGRES_USER: $(IntegrationTests.Database.Username)
+        POSTGRES_PASSWORD: $(IntegrationTests.Database.Password)
   repositories:
     - repository: templates
       type: github
       name: statisticsnorway/azure-pipelines-templates
       ref: refs/heads/feature/retag-imagescan
-      endpoint: statisticsnorway (6)
+      endpoint: statisticsnorway
 
     # Pipeline will be run on this base image
 pool:
@@ -58,8 +58,6 @@ variables:
 # Job which runs mvn test and verify, Sonar Analysis (if branch is master), mvn install,
 # builds Docker image, pushes this to GCR and checks for any image vulnerabilities
 jobs:
-  services:
-    postgres: postgres_container_for_tests
   - template: complete-builds/job-test-integration-coverage-build-gcr.yml@templates
     parameters:
       project: dapla
