@@ -130,6 +130,12 @@
             <artifactId>google-pubsub-client</artifactId>
             <version>0.7</version>
         </dependency>
+        <dependency>
+            <groupId>no.ssb.helidon</groupId>
+            <artifactId>helidon-testing</artifactId>
+            <version>0.6</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
