@@ -6,8 +6,8 @@ webserver:
 
 pgpool:
   connect-options:
-    port: 5432
-    host: postgres_container_for_tests
+    port: 10112
+    host: postgres
     database: catalog
     user: catalog
     password: catalog
@@ -18,7 +18,7 @@ init:
   db-connectivity-attempts: 3
 
 flyway:
-  url: jdbc:postgresql://postgres_container_for_tests:5432/catalog
+  url: jdbc:postgresql://postgres:10112/catalog
   user: catalog
   password: catalog
 
