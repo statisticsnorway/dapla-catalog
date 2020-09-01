@@ -1,0 +1,29 @@
+grpcserver:
+  port: 0
+
+webserver:
+  port: 0
+
+pgpool:
+  connect-options:
+    port: 10112
+    host: postgres_container_for_tests
+    database: catalog
+    user: catalog
+    password: catalog
+  pool-options:
+    max-size: 5
+
+init:
+  db-connectivity-attempts: 3
+
+flyway:
+  url: jdbc:postgresql://postgres_container_for_tests:10112/catalog
+  user: catalog
+  password: catalog
+
+tracing:
+  enabled: false
+
+pubsub:
+  enabled: false
