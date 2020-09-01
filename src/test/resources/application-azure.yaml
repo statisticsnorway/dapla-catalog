@@ -1,0 +1,37 @@
+grpcserver:
+  port: 0
+
+webserver:
+  port: 0
+
+pgpool:
+  connect-options:
+    port: 5432
+    host: postgres
+    database: catalog
+    user: catalog
+    password: catalog
+  pool-options:
+    max-size: 5
+
+init:
+  db-connectivity-attempts: 3
+
+flyway:
+  url: jdbc:postgresql://postgres:5432/catalog
+  user: catalog
+  password: catalog
+
+tracing:
+  enabled: false
+
+pubsub:
+  enabled: false
+
+catalogds:
+  bypass-validation: false
+  format: PKCS12
+  keystore: src/test/resources/metadata-verifier_keystore.p12
+  keyAlias: dataAccessCertificate
+  password: changeit
+  algorithm: SHA256withRSA
