@@ -54,6 +54,9 @@ public class CatalogHttpService implements Service {
             byte[] signatureBytes = signedDataset.getDatasetMetaSignatureBytes().toByteArray();
             byte[] datasetMetaBytes = signedDataset.getDatasetMetaBytes().toByteArray();
 
+            if (signatureBytes.length == 0 || datasetMetaBytes.length == 0) {
+                res.status(400).send("Missing dataset metadata or dataset metadata signature");
+            }
             boolean verified = verifier.verify(datasetMetaBytes, signatureBytes);
             if (verified) {
                 repository.create(dataset)
