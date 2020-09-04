@@ -122,7 +122,14 @@ class CatalogHttpServiceTest {
                 .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
                 .setDatasetMetaSignatureBytes(ByteString.copyFrom(char256.getBytes()))
                 .build();
-        Assertions.assertEquals(client.post("/catalog/write", signedDataset2).response().statusCode(), 401);
+        Assertions.assertEquals(401, client.post("/catalog/write", signedDataset2).response().statusCode());
+
+        // missing metadata and signature
+        SignedDataset signedDataset3 = SignedDataset.newBuilder()
+                .setDataset(dataset)
+                .setUserId("user")
+                .build();
+        Assertions.assertEquals(400, client.post("/catalog/write", signedDataset3).response().statusCode());
 
     }
 
