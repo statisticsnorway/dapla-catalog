@@ -71,6 +71,6 @@ jobs:
   # the code repo are propagated to the corresponding (newly built) image in GCR.
   - template: docker/docker-tag-for-production.yml@templates
     parameters:
-      tagToTag: ${{ variables.imageName }}
+      tagToTag: 'master-$(fullSha)'
       gcrImageName: ${{ variables.imageName }}
 
