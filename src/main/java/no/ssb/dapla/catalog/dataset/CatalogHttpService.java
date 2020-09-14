@@ -107,7 +107,7 @@ public class CatalogHttpService implements Service {
                         ObjectNode jsonCatalogs = objectMapper.createObjectNode();
                         ArrayNode catalogList = jsonCatalogs.putArray("catalogs");
                         for (Dataset dataset : datasets) {
-                            catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());;
+                            catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());
                         }
 
                         res.send(jsonCatalogs.toString());
