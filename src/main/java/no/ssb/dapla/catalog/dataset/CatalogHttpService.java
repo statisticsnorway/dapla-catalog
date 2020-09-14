@@ -108,6 +108,11 @@ public class CatalogHttpService implements Service {
                         ArrayNode catalogList = jsonCatalogs.putArray("catalogs");
                         for (Dataset dataset : datasets) {
                             catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());
+                            catalogList.addObject().putObject("id").put("date", dataset.getId().getTimestamp());
+                            catalogList.addObject().putObject("id").put("type", dataset.getTypeValue());
+                            catalogList.addObject().putObject("id").put("valuation", dataset.getValuationValue());
+                            catalogList.addObject().putObject("id").put("state", dataset.getStateValue());
+                            //catalogList.addObject().putObject("id").put("state", dataset.getPseudoConfig());
                         }
 
                         res.send(jsonCatalogs.toString());
