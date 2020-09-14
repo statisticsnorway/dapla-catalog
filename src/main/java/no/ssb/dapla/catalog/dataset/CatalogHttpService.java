@@ -112,7 +112,7 @@ public class CatalogHttpService implements Service {
                             catalogList.addObject().putObject("id").put("type", dataset.getTypeValue());
                             catalogList.addObject().putObject("id").put("valuation", dataset.getValuationValue());
                             catalogList.addObject().putObject("id").put("state", dataset.getStateValue());
-                            catalogList.addObject().putObject("id").put("state", dataset.getPseudoConfig().toString());
+                            catalogList.addObject().putObject("id").put("pseudoConfig", dataset.getPseudoConfig().toString());
                         }
 
                         res.send(jsonCatalogs.toString());
