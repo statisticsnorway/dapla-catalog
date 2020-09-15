@@ -16,6 +16,7 @@ import no.ssb.helidon.application.Tracing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static no.ssb.helidon.application.Tracing.logError;
@@ -106,13 +107,17 @@ public class CatalogHttpService implements Service {
 
                         ObjectNode jsonCatalogs = objectMapper.createObjectNode();
                         ArrayNode catalogList = jsonCatalogs.putArray("catalogs");
+                        ObjectNode currentDataset;
+
                         for (Dataset dataset : datasets) {
-                            catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());
-                            catalogList.addObject().putObject("id").put("date", dataset.getId().getTimestamp());
-                            catalogList.addObject().putObject("id").put("type", dataset.getTypeValue());
-                            catalogList.addObject().putObject("id").put("valuation", dataset.getValuationValue());
-                            catalogList.addObject().putObject("id").put("state", dataset.getStateValue());
-                            catalogList.addObject().putObject("id").put("pseudoConfig", dataset.getPseudoConfig().toString());
+                            currentDataset = catalogList.addObject();
+                            currentDataset.putObject("id")
+                                .put("path", dataset.getId().getPath())
+                                .put("timestamp", dataset.getId().getTimestamp());
+                            currentDataset.put("type", dataset.getTypeValue());
+                            currentDataset.put("valuation", dataset.getValuationValue());
+                            currentDataset.put("state", dataset.getStateValue());
+                            currentDataset.put("pseudoConfig", dataset.getPseudoConfig().getVarsList().toString());
                         }
 
                         res.send(jsonCatalogs.toString());
