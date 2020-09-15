@@ -12,5 +12,6 @@ buildNumber.properties
 
 .idea/
 *.iml
+.DS_Store
 
 /secret/
