@@ -19,6 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,21 +62,103 @@ class CatalogHttpServiceTest {
     @Test
     void thatCatalogGetAllDatasets() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
+        Clock clockDS1 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        Clock clockDS2 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        Clock clockDS3 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        Clock clockDS4 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path1/dataset1").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path2/dataset2").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path3/dataset31").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path3/dataset32").build()).build());
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path1/dataset1")
+                        .setTimestamp(clockDS1.millis())
+                        .build())
+                .setType(Dataset.Type.BOUNDED)
+                .setValuation(Dataset.Valuation.OPEN)
+                .setState(Dataset.DatasetState.INPUT)
+                .setPseudoConfig(PseudoConfig.newBuilder().build())
+                .build());
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path2/dataset2")
+                        .setTimestamp(clockDS2.millis())
+                        .build())
+                .setType(Dataset.Type.UNBOUNDED)
+                .setValuation(Dataset.Valuation.INTERNAL)
+                .setState(Dataset.DatasetState.PROCESSED)
+                .setPseudoConfig(PseudoConfig.newBuilder().build())
+                .build());
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path3/dataset31")
+                        .setTimestamp(clockDS3.millis())
+                        .build())
+                .setType(Dataset.Type.BOUNDED)
+                .setValuation(Dataset.Valuation.SENSITIVE)
+                .setState(Dataset.DatasetState.RAW)
+                .setPseudoConfig(PseudoConfig.newBuilder().build())
+                .build());
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path3/dataset32")
+                        .setTimestamp(clockDS4.millis())
+                        .build())
+                .setType(Dataset.Type.UNBOUNDED)
+                .setValuation(Dataset.Valuation.SHIELDED)
+                .setState(Dataset.DatasetState.TEMP)
+                .setPseudoConfig(PseudoConfig.newBuilder().build())
+                .build());
 
         String catalogJson = client.get("/catalog").expect200Ok().body();
         JsonNode actual = mapper.readTree(catalogJson);
 
         ObjectNode expected = mapper.createObjectNode();
         ArrayNode catalogs = expected.putArray("catalogs");
-        catalogs.addObject().putObject("id").put("path", "/path1/dataset1");
-        catalogs.addObject().putObject("id").put("path", "/path2/dataset2");
-        catalogs.addObject().putObject("id").put("path", "/path3/dataset31");
-        catalogs.addObject().putObject("id").put("path", "/path3/dataset32");
+        ObjectNode currentDataset;
+
+        currentDataset = catalogs.addObject();
+        currentDataset.putObject("id")
+                .put("path", "/path1/dataset1")
+                .put("timestamp", clockDS1.millis());
+        currentDataset
+                .put("type", Dataset.Type.BOUNDED.getNumber())
+                .put("valuation",Dataset.Valuation.OPEN.getNumber())
+                .put("state",Dataset.DatasetState.INPUT.getNumber())
+
+                /****
+                 * How to add and test the pseudoconfig field?
+                 ****/
+                //  Does this work correctly?
+                .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
+
+        currentDataset = catalogs.addObject();
+        currentDataset.putObject("id")
+                .put("path", "/path2/dataset2")
+                .put("timestamp", clockDS2.millis());
+        currentDataset
+                .put("type", Dataset.Type.UNBOUNDED.getNumber())
+                .put("valuation",Dataset.Valuation.INTERNAL.getNumber())
+                .put("state",Dataset.DatasetState.PROCESSED.getNumber())
+                .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
+
+        currentDataset = catalogs.addObject();
+        currentDataset.putObject("id")
+                .put("path", "/path3/dataset31")
+                .put("timestamp", clockDS3.millis());
+        currentDataset
+                .put("type", Dataset.Type.BOUNDED.getNumber())
+                .put("valuation",Dataset.Valuation.SENSITIVE.getNumber())
+                .put("state",Dataset.DatasetState.RAW.getNumber())
+                .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
+
+        currentDataset = catalogs.addObject();
+        currentDataset.putObject("id")
+                .put("path", "/path3/dataset32")
+                .put("timestamp", clockDS4.millis());
+        currentDataset
+                .put("type", Dataset.Type.UNBOUNDED.getNumber())
+                .put("valuation",Dataset.Valuation.SHIELDED.getNumber())
+                .put("state",Dataset.DatasetState.TEMP.getNumber())
+                .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
 
         assertEquals(expected, actual);
     }
