@@ -120,9 +120,9 @@ class CatalogHttpServiceTest {
                 .put("path", "/path1/dataset1")
                 .put("timestamp", clockDS1.millis());
         currentDataset
-                .put("type", Dataset.Type.BOUNDED.getNumber())
-                .put("valuation",Dataset.Valuation.OPEN.getNumber())
-                .put("state",Dataset.DatasetState.INPUT.getNumber())
+                .put("type", Dataset.Type.BOUNDED.toString())
+                .put("valuation",Dataset.Valuation.OPEN.toString())
+                .put("state",Dataset.DatasetState.INPUT.toString())
                 .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
 
         currentDataset = catalogs.addObject();
@@ -130,9 +130,9 @@ class CatalogHttpServiceTest {
                 .put("path", "/path2/dataset2")
                 .put("timestamp", clockDS2.millis());
         currentDataset
-                .put("type", Dataset.Type.UNBOUNDED.getNumber())
-                .put("valuation",Dataset.Valuation.INTERNAL.getNumber())
-                .put("state",Dataset.DatasetState.PROCESSED.getNumber())
+                .put("type", Dataset.Type.UNBOUNDED.toString())
+                .put("valuation",Dataset.Valuation.INTERNAL.toString())
+                .put("state",Dataset.DatasetState.PROCESSED.toString())
                 .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
 
         currentDataset = catalogs.addObject();
@@ -140,9 +140,9 @@ class CatalogHttpServiceTest {
                 .put("path", "/path3/dataset31")
                 .put("timestamp", clockDS3.millis());
         currentDataset
-                .put("type", Dataset.Type.BOUNDED.getNumber())
-                .put("valuation",Dataset.Valuation.SENSITIVE.getNumber())
-                .put("state",Dataset.DatasetState.RAW.getNumber())
+                .put("type", Dataset.Type.BOUNDED.toString())
+                .put("valuation",Dataset.Valuation.SENSITIVE.toString())
+                .put("state",Dataset.DatasetState.RAW.toString())
                 .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
 
         currentDataset = catalogs.addObject();
@@ -150,9 +150,9 @@ class CatalogHttpServiceTest {
                 .put("path", "/path3/dataset32")
                 .put("timestamp", clockDS4.millis());
         currentDataset
-                .put("type", Dataset.Type.UNBOUNDED.getNumber())
-                .put("valuation",Dataset.Valuation.SHIELDED.getNumber())
-                .put("state",Dataset.DatasetState.TEMP.getNumber())
+                .put("type", Dataset.Type.UNBOUNDED.toString())
+                .put("valuation",Dataset.Valuation.SHIELDED.toString())
+                .put("state",Dataset.DatasetState.TEMP.toString())
                 .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
 
         assertEquals(expected, actual);
