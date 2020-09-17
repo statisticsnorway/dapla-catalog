@@ -114,9 +114,9 @@ public class CatalogHttpService implements Service {
                             currentDataset.putObject("id")
                                 .put("path", dataset.getId().getPath())
                                 .put("timestamp", dataset.getId().getTimestamp());
-                            currentDataset.put("type", dataset.getTypeValue());
-                            currentDataset.put("valuation", dataset.getValuationValue());
-                            currentDataset.put("state", dataset.getStateValue());
+                            currentDataset.put("type", dataset.getType().toString());
+                            currentDataset.put("valuation", dataset.getValuation().toString());
+                            currentDataset.put("state", dataset.getState().toString());
                             currentDataset.put("pseudoConfig", dataset.getPseudoConfig().getVarsList().toString());
                         }
 
