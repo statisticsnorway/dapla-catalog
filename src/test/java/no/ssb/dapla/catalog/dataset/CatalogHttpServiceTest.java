@@ -123,11 +123,6 @@ class CatalogHttpServiceTest {
                 .put("type", Dataset.Type.BOUNDED.getNumber())
                 .put("valuation",Dataset.Valuation.OPEN.getNumber())
                 .put("state",Dataset.DatasetState.INPUT.getNumber())
-
-                /****
-                 * How to add and test the pseudoconfig field?
-                 ****/
-                //  Does this work correctly?
                 .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
 
         currentDataset = catalogs.addObject();
