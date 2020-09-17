@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
 import no.ssb.dapla.catalog.CatalogApplication;
 import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SignedDataset;
@@ -62,15 +63,15 @@ class CatalogHttpServiceTest {
     @Test
     void thatCatalogGetAllDatasets() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        Clock clockDS1 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-        Clock clockDS2 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-        Clock clockDS3 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-        Clock clockDS4 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        Clock clockCatalogGetAllDatasets1 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        Clock clockCatalogGetAllDatasets2 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        Clock clockCatalogGetAllDatasets3 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        Clock clockCatalogGetAllDatasets4 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path1/dataset1")
-                        .setTimestamp(clockDS1.millis())
+                        .setTimestamp(clockCatalogGetAllDatasets1.millis())
                         .build())
                 .setType(Dataset.Type.BOUNDED)
                 .setValuation(Dataset.Valuation.OPEN)
@@ -80,7 +81,7 @@ class CatalogHttpServiceTest {
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path2/dataset2")
-                        .setTimestamp(clockDS2.millis())
+                        .setTimestamp(clockCatalogGetAllDatasets2.millis())
                         .build())
                 .setType(Dataset.Type.UNBOUNDED)
                 .setValuation(Dataset.Valuation.INTERNAL)
@@ -90,7 +91,7 @@ class CatalogHttpServiceTest {
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path3/dataset31")
-                        .setTimestamp(clockDS3.millis())
+                        .setTimestamp(clockCatalogGetAllDatasets3.millis())
                         .build())
                 .setType(Dataset.Type.BOUNDED)
                 .setValuation(Dataset.Valuation.SENSITIVE)
@@ -100,7 +101,7 @@ class CatalogHttpServiceTest {
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path3/dataset32")
-                        .setTimestamp(clockDS4.millis())
+                        .setTimestamp(clockCatalogGetAllDatasets4.millis())
                         .build())
                 .setType(Dataset.Type.UNBOUNDED)
                 .setValuation(Dataset.Valuation.SHIELDED)
@@ -118,7 +119,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path1/dataset1")
-                .put("timestamp", clockDS1.millis());
+                .put("timestamp", clockCatalogGetAllDatasets1.millis());
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
                 .put("valuation",Dataset.Valuation.OPEN.toString())
@@ -128,7 +129,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path2/dataset2")
-                .put("timestamp", clockDS2.millis());
+                .put("timestamp", clockCatalogGetAllDatasets2.millis());
         currentDataset
                 .put("type", Dataset.Type.UNBOUNDED.toString())
                 .put("valuation",Dataset.Valuation.INTERNAL.toString())
@@ -138,7 +139,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path3/dataset31")
-                .put("timestamp", clockDS3.millis());
+                .put("timestamp", clockCatalogGetAllDatasets3.millis());
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
                 .put("valuation",Dataset.Valuation.SENSITIVE.toString())
@@ -148,7 +149,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path3/dataset32")
-                .put("timestamp", clockDS4.millis());
+                .put("timestamp", clockCatalogGetAllDatasets4.millis());
         currentDataset
                 .put("type", Dataset.Type.UNBOUNDED.toString())
                 .put("valuation",Dataset.Valuation.SHIELDED.toString())
@@ -161,18 +162,48 @@ class CatalogHttpServiceTest {
     @Test
     void thatCatalogGetAllDatasetsInPath() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
+        Long timestampInMS = Clock.fixed(Instant.parse("2018-08-19T16:02:42.00Z"), ZoneId.systemDefault()).millis();
 
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path1/dataset1").build()).build());
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path2/dataset2").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path3/dataset31").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path3/dataset32").build()).build());
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path3/dataset31")
+                        .setTimestamp(timestampInMS)
+                        .build())
+                .build());
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path3/dataset32")
+                        .setTimestamp(timestampInMS)
+                        .build())
+                .build());
         String catalogJson = client.get("/catalog/path3").expect200Ok().body();
         JsonNode actual = mapper.readTree(catalogJson);
 
         ObjectNode expected = mapper.createObjectNode();
         ArrayNode catalogs = expected.putArray("catalogs");
-        catalogs.addObject().putObject("id").put("path", "/path3/dataset31");
-        catalogs.addObject().putObject("id").put("path", "/path3/dataset32");
+        ObjectNode currentDataset;
+
+        currentDataset = catalogs.addObject();
+        currentDataset.putObject("id")
+                .put("path", "/path3/dataset31")
+                .put("timestamp", timestampInMS);
+        currentDataset
+                .put("type", Dataset.Type.BOUNDED.toString())
+                .put("valuation",Dataset.Valuation.SENSITIVE.toString())
+                .put("state",Dataset.DatasetState.OTHER.toString())
+                .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
+
+        currentDataset = catalogs.addObject();
+        currentDataset.putObject("id")
+                .put("path", "/path3/dataset32")
+                .put("timestamp", timestampInMS);
+        currentDataset
+                .put("type", Dataset.Type.BOUNDED.toString())
+                .put("valuation",Dataset.Valuation.SENSITIVE.toString())
+                .put("state",Dataset.DatasetState.OTHER.toString())
+                .put("pseudoConfig", Dataset.getDefaultInstance().getPseudoConfig().getVarsList().toString());
 
         assertEquals(expected, actual);
     }
