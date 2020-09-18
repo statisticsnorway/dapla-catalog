@@ -106,8 +106,18 @@ public class CatalogHttpService implements Service {
 
                         ObjectNode jsonCatalogs = objectMapper.createObjectNode();
                         ArrayNode catalogList = jsonCatalogs.putArray("catalogs");
+                        ObjectNode currentDataset;
+
                         for (Dataset dataset : datasets) {
-                            catalogList.addObject().putObject("id").put("path", dataset.getId().getPath());;
+                            currentDataset = catalogList.addObject();
+                            currentDataset.putObject("id")
+                                .put("path", dataset.getId().getPath())
+                                .put("timestamp", dataset.getId().getTimestamp());
+                            currentDataset.put("type", dataset.getType().toString());
+                            currentDataset.put("valuation", dataset.getValuation().toString());
+                            currentDataset.put("state", dataset.getState().toString());
+                            currentDataset.putObject("pseudoConfig")
+                                .put("vars", dataset.getPseudoConfig().getVarsList().toString());
                         }
 
                         res.send(jsonCatalogs.toString());
@@ -133,6 +143,4 @@ public class CatalogHttpService implements Service {
             }
         }
     }
-
-
 }
