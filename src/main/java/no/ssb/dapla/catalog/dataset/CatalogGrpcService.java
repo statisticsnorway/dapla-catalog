@@ -105,7 +105,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
         TracerAndSpan tracerAndSpan = spanFromGrpc(request, "listByPrefix");
         Span span = tracerAndSpan.span();
         try {
-            repository.listByPrefix(request.getPrefix(), 100)
+            repository.listByPrefix(request.getPrefix(), 1000)
                     .timeout(5, TimeUnit.SECONDS)
                     .toList()
                     .subscribe(entries -> {
