@@ -115,7 +115,6 @@ class CatalogHttpServiceTest {
                 .setState(Dataset.DatasetState.INPUT)
                 .setPseudoConfig(dummyPseudoConfig())
                 .build());
-
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path2/dataset2")
@@ -144,7 +143,7 @@ class CatalogHttpServiceTest {
                 .setType(Dataset.Type.UNBOUNDED)
                 .setValuation(Dataset.Valuation.SHIELDED)
                 .setState(Dataset.DatasetState.TEMP)
-                .setPseudoConfig(dummyPseudoConfig())
+                .setPseudoConfig(PseudoConfig.newBuilder().build())
                 .build());
 
         String catalogJson = client.get("/catalog").expect200Ok().body();
@@ -195,8 +194,6 @@ class CatalogHttpServiceTest {
                 .put("type", Dataset.Type.UNBOUNDED.toString())
                 .put("valuation",Dataset.Valuation.SHIELDED.toString())
                 .put("state",Dataset.DatasetState.TEMP.toString());
-        currentDataset.putObject("pseudoConfig")
-                .put("vars", dummyPseudoConfig().getVarsList().toString());
 
         assertEquals(expected, actual);
     }
