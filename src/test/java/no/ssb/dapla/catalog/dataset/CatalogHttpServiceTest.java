@@ -1,5 +1,7 @@
 package no.ssb.dapla.catalog.dataset;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,8 +9,20 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
 import no.ssb.dapla.catalog.CatalogApplication;
-import no.ssb.dapla.catalog.protobuf.*;
+import no.ssb.dapla.catalog.protobuf.Dataset;
+import no.ssb.dapla.catalog.protobuf.DatasetId;
+import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.ListByPrefixRequest;
+import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
+import no.ssb.dapla.catalog.protobuf.PseudoConfig;
+import no.ssb.dapla.catalog.protobuf.SignedDataset;
+import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
+import no.ssb.dapla.dataset.api.DatasetMetaAll;
 import no.ssb.testing.helidon.IntegrationTestExtension;
+import no.ssb.testing.helidon.MockRegistryConfig;
 import no.ssb.testing.helidon.TestClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,12 +33,15 @@ import javax.inject.Inject;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 @ExtendWith(IntegrationTestExtension.class)
+@MockRegistryConfig(CatalogMockRegistry.class)
 class CatalogHttpServiceTest {
 
     @Inject
@@ -35,13 +52,21 @@ class CatalogHttpServiceTest {
 
     String char256 = "fake_signature_of_256_lengthdapla_testing_fake_sinagure of 228 characters length is a long string of chars that is used for testing a fake signature of not importance, ... now it is already 165 chars and i only need to create another 10s of chars to fill .";
 
+    static final MetadataSigner metadataSigner = new MetadataSigner(
+            "PKCS12",
+            "src/test/resources/metadata-signer_keystore.p12",
+            "dataAccessKeyPair",
+            "changeit".toCharArray(),
+            "SHA256withRSA"
+    );
+
     @BeforeEach
     public void beforeEach() {
-        application.get(DatasetRepository.class).deleteAllDatasets().blockingGet();
+        application.get(DatasetRepository.class).deleteAllDatasets().await(30, TimeUnit.SECONDS);
     }
 
     void repositoryCreate(Dataset dataset) {
-        application.get(DatasetRepository.class).create(dataset).timeout(3, TimeUnit.SECONDS).blockingGet();
+        application.get(DatasetRepository.class).create(dataset).await(3, TimeUnit.SECONDS);
     }
 
     @Test
@@ -58,43 +83,31 @@ class CatalogHttpServiceTest {
 
     @Test
     void thatCatalogSaveDataset() {
-        MetadataSigner metadataSigner = new MetadataSigner(
-                "PKCS12",
-                "src/test/resources/metadata-signer_keystore.p12",
-                "dataAccessKeyPair",
-                "changeit".toCharArray(),
-                "SHA256withRSA"
-        );
+        DatasetMetaAll datasetMetaAll = createDatasetMetaAll(0);
+        byte[] signature = metadataSigner.sign(datasetMetaAll.toByteArray());
+        byte[] datasetMetaAllBytes = datasetMetaAll.toByteArray();
 
-        Dataset dataset = createDataset(0);
-        byte[] signature = metadataSigner.sign(dataset.toByteArray());
-        byte[] datasetMetaBytes = dataset.toByteArray();
+        String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", "user")
+                .sign(Algorithm.HMAC256("secret"))};
 
         //Authorized user
         SignedDataset signedDataset = SignedDataset.newBuilder()
-                .setDataset(dataset)
-                .setUserId("user")
-                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
-                .setDatasetMetaSignatureBytes(ByteString.copyFrom(signature))
+                .setDatasetMetaAllBytes(ByteString.copyFrom(datasetMetaAllBytes))
+                .setDatasetMetaAllSignatureBytes(ByteString.copyFrom(signature))
                 .build();
-        client.post("/catalog/write", signedDataset).expect200Ok();
+        client.postAsJson("/catalog/write", signedDataset, headers).expect200Ok();
 
         // fake signature
         SignedDataset signedDataset2 = SignedDataset.newBuilder()
-                .setDataset(dataset)
-                .setUserId("user")
-                .setDatasetMetaBytes(ByteString.copyFrom(datasetMetaBytes))
-                .setDatasetMetaSignatureBytes(ByteString.copyFrom(char256.getBytes()))
+                .setDatasetMetaAllBytes(ByteString.copyFrom(datasetMetaAllBytes))
+                .setDatasetMetaAllSignatureBytes(ByteString.copyFrom(char256.getBytes()))
                 .build();
-        Assertions.assertEquals(401, client.post("/catalog/write", signedDataset2).response().statusCode());
+        Assertions.assertEquals(401, client.postAsJson("/catalog/write", signedDataset2, headers).response().statusCode());
 
         // missing metadata and signature
         SignedDataset signedDataset3 = SignedDataset.newBuilder()
-                .setDataset(dataset)
-                .setUserId("user")
                 .build();
-        Assertions.assertEquals(400, client.post("/catalog/write", signedDataset3).response().statusCode());
-
+        Assertions.assertEquals(400, client.postAsJson("/catalog/write", signedDataset3, headers).response().statusCode());
     }
 
     @Test
@@ -159,8 +172,8 @@ class CatalogHttpServiceTest {
                 .put("timestamp", clockCatalogGetAllDatasets1.millis());
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
-                .put("valuation",Dataset.Valuation.OPEN.toString())
-                .put("state",Dataset.DatasetState.INPUT.toString());
+                .put("valuation", Dataset.Valuation.OPEN.toString())
+                .put("state", Dataset.DatasetState.INPUT.toString());
         currentDataset.putObject("pseudoConfig")
                 .put("vars", dummyPseudoConfig().getVarsList().toString());
 
@@ -170,8 +183,8 @@ class CatalogHttpServiceTest {
                 .put("timestamp", clockCatalogGetAllDatasets2.millis());
         currentDataset
                 .put("type", Dataset.Type.UNBOUNDED.toString())
-                .put("valuation",Dataset.Valuation.INTERNAL.toString())
-                .put("state",Dataset.DatasetState.PROCESSED.toString());
+                .put("valuation", Dataset.Valuation.INTERNAL.toString())
+                .put("state", Dataset.DatasetState.PROCESSED.toString());
         currentDataset.putObject("pseudoConfig")
                 .put("vars", dummyPseudoConfig().getVarsList().toString());
 
@@ -181,8 +194,8 @@ class CatalogHttpServiceTest {
                 .put("timestamp", clockCatalogGetAllDatasets3.millis());
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
-                .put("valuation",Dataset.Valuation.SENSITIVE.toString())
-                .put("state",Dataset.DatasetState.RAW.toString());
+                .put("valuation", Dataset.Valuation.SENSITIVE.toString())
+                .put("state", Dataset.DatasetState.RAW.toString());
         currentDataset.putObject("pseudoConfig")
                 .put("vars", dummyPseudoConfig().getVarsList().toString());
 
@@ -192,8 +205,8 @@ class CatalogHttpServiceTest {
                 .put("timestamp", clockCatalogGetAllDatasets4.millis());
         currentDataset
                 .put("type", Dataset.Type.UNBOUNDED.toString())
-                .put("valuation",Dataset.Valuation.SHIELDED.toString())
-                .put("state",Dataset.DatasetState.TEMP.toString());
+                .put("valuation", Dataset.Valuation.SHIELDED.toString())
+                .put("state", Dataset.DatasetState.TEMP.toString());
 
         assertEquals(expected, actual);
     }
@@ -232,8 +245,8 @@ class CatalogHttpServiceTest {
                 .put("timestamp", timestampInMS);
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
-                .put("valuation",Dataset.Valuation.SENSITIVE.toString())
-                .put("state",Dataset.DatasetState.OTHER.toString());
+                .put("valuation", Dataset.Valuation.SENSITIVE.toString())
+                .put("state", Dataset.DatasetState.OTHER.toString());
         currentDataset.putObject("pseudoConfig")
                 .put("vars", dummyPseudoConfig().getVarsList().toString());
 
@@ -243,21 +256,32 @@ class CatalogHttpServiceTest {
                 .put("timestamp", timestampInMS);
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
-                .put("valuation",Dataset.Valuation.SENSITIVE.toString())
-                .put("state",Dataset.DatasetState.OTHER.toString());
+                .put("valuation", Dataset.Valuation.SENSITIVE.toString())
+                .put("state", Dataset.DatasetState.OTHER.toString());
         currentDataset.putObject("pseudoConfig")
                 .put("vars", dummyPseudoConfig().getVarsList().toString());
 
         assertEquals(expected, actual);
     }
 
-    private Dataset createDataset(int i) {
+    private DatasetMetaAll createDatasetMetaAll(int i) {
         String path = "/path/to/dataset-" + i;
-        return Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setPath(path).build())
-                .setType(Dataset.Type.BOUNDED)
-                .setValuation(Dataset.Valuation.OPEN)
-                .setState(Dataset.DatasetState.INPUT)
+        return no.ssb.dapla.dataset.api.DatasetMetaAll.newBuilder()
+                .setId(no.ssb.dapla.dataset.api.DatasetId.newBuilder().setPath(path).setVersion("" + i).build())
+                .setType(no.ssb.dapla.dataset.api.Type.BOUNDED)
+                .setValuation(no.ssb.dapla.dataset.api.Valuation.OPEN)
+                .setState(no.ssb.dapla.dataset.api.DatasetState.INPUT)
+                .setCreatedBy("user")
+                .setRandom("rnd-" + i)
+                .setParentUri("file://parent/uri")
+                .build();
+    }
+
+    static no.ssb.dapla.dataset.api.PseudoConfig dummyDatasetMetaAllPseudoConfig() {
+        return no.ssb.dapla.dataset.api.PseudoConfig.newBuilder()
+                .addVars(no.ssb.dapla.dataset.api.VarPseudoConfigItem.newBuilder().setVar("var1").setPseudoFunc("someFunc1(param1,keyId1)"))
+                .addVars(no.ssb.dapla.dataset.api.VarPseudoConfigItem.newBuilder().setVar("var2").setPseudoFunc("someFunc2(keyId2)"))
+                .addVars(no.ssb.dapla.dataset.api.VarPseudoConfigItem.newBuilder().setVar("var3").setPseudoFunc("someFunc3(keyId1)"))
                 .build();
     }
 
@@ -267,5 +291,239 @@ class CatalogHttpServiceTest {
                 .addVars(VarPseudoConfigItem.newBuilder().setVar("var2").setPseudoFunc("someFunc2(keyId2)"))
                 .addVars(VarPseudoConfigItem.newBuilder().setVar("var3").setPseudoFunc("someFunc3(keyId1)"))
                 .build();
+    }
+
+    Dataset repositoryGet(String id) {
+        return application.get(DatasetRepository.class).get(id).await(3, TimeUnit.SECONDS);
+    }
+
+    GetDatasetResponse get(String path) {
+        GetDatasetRequest request = GetDatasetRequest.newBuilder().setPath(path).build();
+        return client.postAsJson("/rpc/CatalogService/get", request, GetDatasetResponse.class).expect200Ok().body();
+    }
+
+    GetDatasetResponse get(String path, long timestamp) {
+        GetDatasetRequest request = GetDatasetRequest.newBuilder().setPath(path).setTimestamp(timestamp).build();
+        return client.postAsJson("/rpc/CatalogService/get", request, GetDatasetResponse.class).expect200Ok().body();
+    }
+
+    String save(DatasetMetaAll dataset, String userId) {
+        byte[] datasetBytes = dataset.toByteArray();
+        byte[] signature = metadataSigner.sign(datasetBytes);
+
+        String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", userId)
+                .sign(Algorithm.HMAC256("secret"))};
+
+        //Authorized user
+        SignedDataset signedDataset = SignedDataset.newBuilder()
+                .setDatasetMetaAllBytes(ByteString.copyFrom(datasetBytes))
+                .setDatasetMetaAllSignatureBytes(ByteString.copyFrom(signature))
+                .build();
+        return client.postAsJson("/catalog/write", signedDataset, headers).expect200Ok().body();
+    }
+
+    DeleteDatasetResponse delete(String path, long timestamp, String username) {
+        String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", username)
+                .sign(Algorithm.HMAC256("secret"))};
+        DeleteDatasetRequest request = DeleteDatasetRequest.newBuilder().setPath(path).setTimestamp(timestamp).build();
+        return client.postAsJson("/rpc/CatalogService/delete", request, DeleteDatasetResponse.class, headers).expect200Ok().body();
+    }
+
+    ListByPrefixResponse listByPrefix(String prefix, int limit) {
+        ListByPrefixRequest request = ListByPrefixRequest.newBuilder().setPrefix(prefix).setLimit(limit).build();
+        return client.postAsJson("/rpc/CatalogService/listByPrefix", request, ListByPrefixResponse.class).expect200Ok().body();
+    }
+
+    @Test
+    void thatListByPrefixWorks() {
+
+        // Create datasets, some with multiple versions
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/another/prefix").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/2").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/3").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unitisgood/forall").build()).build());
+        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/x-after/and/more/data").build()).build());
+        ListByPrefixResponse response = listByPrefix("/unit", 100);
+        List<DatasetId> entries = response.getEntriesList();
+        assertThat(entries.size()).isEqualTo(5);
+        assertThat(entries.get(0).getPath()).isEqualTo("/unit-test/and/other/data");
+        assertThat(entries.get(1).getPath()).isEqualTo("/unit-test/with/data/1");
+        assertThat(entries.get(2).getPath()).isEqualTo("/unit-test/with/data/2");
+        assertThat(entries.get(3).getPath()).isEqualTo("/unit-test/with/data/3");
+        assertThat(entries.get(4).getPath()).isEqualTo("/unitisgood/forall");
+    }
+
+    @Test
+    void thatGetDatasetWorks() {
+        Dataset dataset = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath("1").build())
+                .setValuation(Dataset.Valuation.SHIELDED)
+                .setState(Dataset.DatasetState.OUTPUT)
+                .setPseudoConfig(dummyPseudoConfig())
+                .setParentUri("f1")
+                .build();
+        repositoryCreate(dataset);
+
+        repositoryCreate(
+                Dataset.newBuilder()
+                        .setId(DatasetId.newBuilder().setPath("2").build())
+                        .setValuation(Dataset.Valuation.SENSITIVE)
+                        .setState(Dataset.DatasetState.RAW)
+                        .setPseudoConfig(dummyPseudoConfig())
+                        .setParentUri("file")
+                        .build()
+        );
+
+        assertThat(get("1").getDataset()).isEqualTo(dataset);
+    }
+
+    @Test
+    void thatGetDoesntReturnADatasetWhenOneDoesntExist() {
+        assertThat(get("does_not_exist").hasDataset()).isFalse();
+    }
+
+    @Test
+    void thatGettingAPreviousDatasetWorks() throws InterruptedException {
+        Dataset old = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath("a_dataset").build())
+                .setValuation(Dataset.Valuation.INTERNAL)
+                .setState(Dataset.DatasetState.PROCESSED)
+                .setPseudoConfig(dummyPseudoConfig())
+                .build();
+        repositoryCreate(old);
+
+        Thread.sleep(50L);
+
+        long timestamp = System.currentTimeMillis();
+
+        Thread.sleep(50L);
+
+        repositoryCreate(
+                Dataset.newBuilder()
+                        .setId(DatasetId.newBuilder().setPath("a_dataset").build())
+                        .setValuation(Dataset.Valuation.OPEN)
+                        .setState(Dataset.DatasetState.RAW)
+                        .setParentUri("a_location")
+                        .build()
+        );
+
+        assertThat(get("a_dataset", timestamp).getDataset()).isEqualTo(old);
+    }
+
+    @Test
+    void thatGetPreviousReturnsNothingWhenTimestampIsOld() {
+        repositoryCreate(
+                Dataset.newBuilder()
+                        .setId(DatasetId.newBuilder().setPath("dataset_from_after_timestamp").build())
+                        .setValuation(Dataset.Valuation.OPEN)
+                        .setState(Dataset.DatasetState.RAW)
+                        .setParentUri("a_location")
+                        .build()
+        );
+        assertThat(get("dataset_from_after_timestamp", 100L).hasDataset()).isFalse();
+    }
+
+    @Test
+    void thatGetPreviousReturnsTheLatestDatasetWhenTimestampIsAfterTheLatest() {
+        long now = System.currentTimeMillis();
+        Dataset dataset = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder().setPath("dataset_from_before_timestamp").setTimestamp(now).build())
+                .setValuation(Dataset.Valuation.SHIELDED)
+                .setState(Dataset.DatasetState.PRODUCT)
+                .setPseudoConfig(dummyPseudoConfig())
+                .setParentUri("some_file")
+                .build();
+        repositoryCreate(dataset);
+
+        assertThat(get("dataset_from_before_timestamp", now + 1).getDataset()).isEqualTo(dataset);
+    }
+
+    @Test
+    void thatDeleteWorks() {
+        long now = System.currentTimeMillis();
+        Dataset dataset = Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("dataset_to_delete")
+                        .setTimestamp(now)
+                        .build())
+                .setValuation(Dataset.Valuation.OPEN)
+                .setState(Dataset.DatasetState.RAW)
+                .setParentUri("f")
+                .build();
+        repositoryCreate(dataset);
+        delete(dataset.getId().getPath(), now, "a-user");
+        assertThat(repositoryGet("dataset_to_delete")).isNull();
+    }
+
+    @Test
+    void thatDeleteWorksWhenDatasetDoesntExist() {
+        delete("does_not_exist", 0, "a-user");
+    }
+
+    @Test
+    void thatCreateWorksIfUserHasCreateAccess() {
+
+        String version = "" + System.currentTimeMillis();
+
+        no.ssb.dapla.dataset.api.DatasetMetaAll ds1 = no.ssb.dapla.dataset.api.DatasetMetaAll.newBuilder()
+                .setId(no.ssb.dapla.dataset.api.DatasetId.newBuilder()
+                        .setPath("dataset_to_create")
+                        .setVersion(version)
+                        .build())
+                .setType(no.ssb.dapla.dataset.api.Type.BOUNDED)
+                .setValuation(no.ssb.dapla.dataset.api.Valuation.SENSITIVE)
+                .setState(no.ssb.dapla.dataset.api.DatasetState.OUTPUT)
+                .setPseudoConfig(dummyDatasetMetaAllPseudoConfig())
+                .setCreatedBy("a-user")
+                .setRandom("ds1")
+                .setParentUri("file_location")
+                .build();
+
+        no.ssb.dapla.dataset.api.DatasetMetaAll ds2 = no.ssb.dapla.dataset.api.DatasetMetaAll.newBuilder()
+                .setId(no.ssb.dapla.dataset.api.DatasetId.newBuilder()
+                        .setPath("dataset_to_create")
+                        .setVersion(version)
+                        .build())
+                .setType(no.ssb.dapla.dataset.api.Type.BOUNDED)
+                .setValuation(no.ssb.dapla.dataset.api.Valuation.INTERNAL)
+                .setState(no.ssb.dapla.dataset.api.DatasetState.PROCESSED)
+                .setPseudoConfig(dummyDatasetMetaAllPseudoConfig())
+                .setCreatedBy("a-user")
+                .setRandom("ds2")
+                .setParentUri("file_location_2")
+                .build();
+
+        save(ds1, "a-user");
+
+        assertThat(repositoryGet("dataset_to_create").getValuation()).isEqualTo(Dataset.Valuation.SENSITIVE);
+
+        save(ds2, "a-user");
+
+        assertThat(repositoryGet("dataset_to_create").getValuation()).isEqualTo(Dataset.Valuation.INTERNAL);
+    }
+
+    @Test
+    void thatCreateFailsIfUserHasNoCreateAccess() {
+        String version = "" + System.currentTimeMillis();
+        no.ssb.dapla.dataset.api.DatasetMetaAll ds1 = no.ssb.dapla.dataset.api.DatasetMetaAll.newBuilder()
+                .setId(no.ssb.dapla.dataset.api.DatasetId.newBuilder()
+                        .setPath("dataset_to_create")
+                        .setVersion(version)
+                        .build())
+                .setType(no.ssb.dapla.dataset.api.Type.BOUNDED)
+                .setValuation(no.ssb.dapla.dataset.api.Valuation.SENSITIVE)
+                .setState(no.ssb.dapla.dataset.api.DatasetState.OUTPUT)
+                .setPseudoConfig(dummyDatasetMetaAllPseudoConfig())
+                .setCreatedBy("b-user")
+                .setRandom("ds1")
+                .setParentUri("file_location")
+                .build();
+
+        save(ds1, "b-user");
     }
 }
