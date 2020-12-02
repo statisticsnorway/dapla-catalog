@@ -104,12 +104,12 @@
         <dependency>
             <groupId>no.ssb.dapla.auth.dataset</groupId>
             <artifactId>dapla-auth-dataset-protobuf</artifactId>
-            <version>0.7-SNAPSHOT</version>
+            <version>0.7</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.pubsub</groupId>
             <artifactId>google-pubsub-client</artifactId>
-            <version>0.9-SNAPSHOT</version>
+            <version>0.9</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.helidon</groupId>
