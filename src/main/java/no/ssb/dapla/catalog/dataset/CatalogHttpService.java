@@ -6,7 +6,6 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.helidon.common.reactive.Single;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
@@ -30,6 +29,7 @@ import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
 import no.ssb.dapla.dataset.api.DatasetMetaAll;
 import no.ssb.helidon.application.Tracing;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -228,8 +228,8 @@ public class CatalogHttpService implements Service {
     private void writeDataset(ServerRequest req, ServerResponse res, SignedDataset signedDataset) {
         Span span = spanFromHttp(req, "writeDataset");
         try {
-            byte[] signatureBytes = signedDataset.getDatasetMetaAllSignatureBytes().toByteArray();
             byte[] datasetMetaAllBytes = signedDataset.getDatasetMetaAllBytes().toByteArray();
+            byte[] signatureBytes = signedDataset.getDatasetMetaAllSignatureBytes().toByteArray();
 
             if (signatureBytes.length == 0 || datasetMetaAllBytes.length == 0) {
                 res.status(400).send("Missing dataset metadata or dataset metadata signature");
@@ -241,12 +241,8 @@ public class CatalogHttpService implements Service {
                 return;
             }
 
-            DatasetMetaAll datasetMetaAll;
-            try {
-                datasetMetaAll = DatasetMetaAll.parseFrom(datasetMetaAllBytes);
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
+            String datasetMetaAllJson = signedDataset.getDatasetMetaAllBytes().toStringUtf8();
+            DatasetMetaAll datasetMetaAll = ProtobufJsonUtils.toPojo(datasetMetaAllJson, DatasetMetaAll.class);
 
             String bearerToken = req.headers().value("Authorization")
                     .filter(h -> h.contains("Bearer "))
