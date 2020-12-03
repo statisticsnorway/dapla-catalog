@@ -17,9 +17,7 @@ flyway:
   url: jdbc:postgresql://localhost:25432/catalog
   user: catalog
   password: catalog
-
-init:
-  db-connectivity-attempts: 120
+  connect-retries: 120
 
 health:
   readiness:

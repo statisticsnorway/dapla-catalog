@@ -92,6 +92,9 @@ public class CatalogApplication extends DefaultHelidonApplication {
 
         AtomicReference<ReadinessSample> lastReadySample = new AtomicReference<>(new ReadinessSample(false, System.currentTimeMillis()));
 
+        // schema migration using flyway and jdbc
+        migrateDatabaseSchema(config.get("flyway"));
+
         DbClient dbClient = DbClient.builder()
                 .config(config.get("db"))
                 .build();
@@ -103,9 +106,6 @@ public class CatalogApplication extends DefaultHelidonApplication {
 
         // initialize health, including a database connectivity wait-loop
         // Health health = new Health(config, sqlClient, lastReadySample, () -> get(WebServer.class));
-
-        // schema migration using flyway and jdbc
-        migrateDatabaseSchema(config.get("flyway"));
 
         DatasetRepository repository = new DatasetRepository(dbClient);
 
@@ -176,6 +176,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
                         flywayConfig.get("user").asString().orElse("rdc"),
                         flywayConfig.get("password").asString().orElse("rdc")
                 )
+                .connectRetries(flywayConfig.get("connect-retries").asInt().orElse(120))
                 .load();
         flyway.migrate();
     }
