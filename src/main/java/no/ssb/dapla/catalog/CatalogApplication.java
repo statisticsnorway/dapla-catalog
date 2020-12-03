@@ -4,8 +4,8 @@ import ch.qos.logback.classic.util.ContextInitializer;
 import io.helidon.common.reactive.Single;
 import io.helidon.config.Config;
 import io.helidon.dbclient.DbClient;
-import io.helidon.dbclient.health.DbClientHealthCheck;
 import io.helidon.health.HealthSupport;
+import io.helidon.health.checks.HealthChecks;
 import io.helidon.metrics.MetricsSupport;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.WebServer;
@@ -100,7 +100,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 .build();
 
         HealthSupport health = HealthSupport.builder()
-                .addLiveness(DbClientHealthCheck.create(dbClient))
+                .addLiveness(HealthChecks.healthChecks())
                 .addReadiness()
                 .build();
 
