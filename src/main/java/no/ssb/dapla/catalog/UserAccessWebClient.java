@@ -40,7 +40,7 @@ public class UserAccessWebClient implements UserAccessClient {
                 .queryParam("valuation", valuation)
                 .queryParam("state", state)
                 .headers(headers -> {
-                    headers.put("Authorization", "Bearer: " + jwtToken);
+                    headers.put("Authorization", "Bearer " + jwtToken);
                     return headers;
                 })
                 .request()
