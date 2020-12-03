@@ -14,19 +14,13 @@ module no.ssb.dapla.catalog {
     requires io.helidon.health;
     requires io.helidon.health.checks;
     requires io.helidon.tracing;
-    requires io.grpc;
 
     requires com.google.common;
     requires no.ssb.dapla.catalog.protobuf;
     requires no.ssb.dapla.auth.dataset.protobuf;
 
-    requires gax.grpc.and.proto.google.common.protos;
-
-    requires grpc.protobuf;
-    requires io.helidon.grpc.server;
     requires java.logging;
 
-    requires no.ssb.helidon.application;
     requires com.google.gson; // required by JsonFormat in protobuf-java-util for serialization and deserialization
 
     /*
@@ -38,14 +32,10 @@ module no.ssb.dapla.catalog {
     requires jdk.naming.dns; // required by netty dns libraries used by reactive postgres
     requires java.sql; // required by flyway
     requires io.helidon.microprofile.config; // metrics uses provider org.eclipse.microprofile.config.spi.ConfigProviderResolver
-    requires perfmark.api; // needed by grpc-client
-    requires javax.inject; // required by io.helidon.grpc.server
     requires java.annotation;
-    requires com.google.protobuf.util;
-    requires no.ssb.helidon.media.protobuf.json.server;
     requires com.fasterxml.jackson.databind;  // required by logstash-encoder
 
-    requires org.checkerframework.checker.qual;
+    //requires org.checkerframework.checker.qual;
     requires jaeger.core;
     requires vertx.core;
     requires org.flywaydb.core;
@@ -60,10 +50,14 @@ module no.ssb.dapla.catalog {
     requires no.ssb.dapla.dataset.api;
     requires com.google.auth.oauth2;
     requires com.google.auth;
+    requires no.ssb.helidon.media.protobuf.json.server;
 
     requires no.ssb.gcloud.pubsub;
+    requires no.ssb.helidon.application;
 
     opens db.migration; // flyway needs this to read migration files
+
+    opens no.ssb.dapla.catalog.dataset; // needed for test
 
     provides no.ssb.helidon.application.HelidonApplicationBuilder with CatalogApplicationBuilder;
 }

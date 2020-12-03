@@ -1,18 +1,14 @@
-grpcserver:
-  port: 0
-
 webserver:
   port: 0
 
-pgpool:
-  connect-options:
-    port: 10112
-    host: localhost
-    database: catalog
-    user: catalog
-    password: catalog
-  pool-options:
-    max-size: 5
+db:
+  source: "jdbc"
+  connection:
+    url: "jdbc:postgresql://localhost:10112/catalog"
+    username: "catalog"
+    password: "catalog"
+  statements:
+    ping: "DO 0"
 
 init:
   db-connectivity-attempts: 3

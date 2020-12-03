@@ -1,34 +1,25 @@
 package no.ssb.dapla.catalog;
 
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.MethodDescriptor;
+import ch.qos.logback.classic.util.ContextInitializer;
+import io.helidon.common.reactive.Single;
 import io.helidon.config.Config;
-import io.helidon.grpc.server.GrpcRouting;
-import io.helidon.grpc.server.GrpcServer;
-import io.helidon.grpc.server.GrpcServerConfiguration;
-import io.helidon.grpc.server.GrpcTracingConfig;
-import io.helidon.grpc.server.ServerRequestAttribute;
+import io.helidon.dbclient.DbClient;
+import io.helidon.dbclient.health.DbClientHealthCheck;
+import io.helidon.health.HealthSupport;
 import io.helidon.metrics.MetricsSupport;
 import io.helidon.webserver.Routing;
-import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.WebTracingConfig;
 import io.helidon.webserver.accesslog.AccessLogSupport;
 import io.opentracing.Tracer;
-import io.opentracing.contrib.grpc.OperationNameConstructor;
-import io.vertx.core.json.JsonObject;
-import io.vertx.reactivex.core.Vertx;
-import io.vertx.reactivex.ext.asyncsql.PostgreSQLClient;
-import io.vertx.reactivex.ext.sql.SQLClient;
-import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.catalog.dataset.*;
-import no.ssb.dapla.catalog.health.Health;
-import no.ssb.dapla.catalog.health.HealthAwareSQLClient;
+import no.ssb.dapla.catalog.dataset.CatalogHttpService;
+import no.ssb.dapla.catalog.dataset.CatalogSignatureVerifier;
+import no.ssb.dapla.catalog.dataset.DatasetRepository;
+import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegration;
+import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegrationInitializer;
+import no.ssb.dapla.catalog.dataset.DefaultCatalogSignatureVerifier;
 import no.ssb.dapla.catalog.health.ReadinessSample;
-import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.DefaultHelidonApplication;
-import no.ssb.helidon.application.HelidonApplication;
-import no.ssb.helidon.application.HelidonGrpcWebTranscoding;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import no.ssb.pubsub.EmulatorPubSub;
 import no.ssb.pubsub.PubSub;
@@ -36,15 +27,17 @@ import no.ssb.pubsub.RealPubSub;
 import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.LogManager;
 
 import static java.util.Optional.ofNullable;
 
@@ -53,8 +46,18 @@ public class CatalogApplication extends DefaultHelidonApplication {
     private static final Logger LOG;
 
     static {
-        installSlf4jJulBridge();
+        String logbackConfigurationFile = System.getenv("LOGBACK_CONFIGURATION_FILE");
+        if (logbackConfigurationFile != null) {
+            System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, logbackConfigurationFile);
+        }
+        LogManager.getLogManager().reset();
+        SLF4JBridgeHandler.removeHandlersForRootLogger();
+        SLF4JBridgeHandler.install();
         LOG = LoggerFactory.getLogger(CatalogApplication.class);
+    }
+
+    public static void installSlf4jJulBridge() {
+        // placeholder used to trigger static initializer only
     }
 
     public static void main(String[] args) {
@@ -63,8 +66,8 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 .start()
                 .toCompletableFuture()
                 .orTimeout(10, TimeUnit.SECONDS)
-                .thenAccept(app -> LOG.info("Webserver running at port: {}, Grpcserver running at port: {}, started in {} ms",
-                        app.get(WebServer.class).port(), app.get(GrpcServer.class).port(), System.currentTimeMillis() - startTime))
+                .thenAccept(app -> LOG.info("Webserver running at port: {}, started in {} ms",
+                        app.get(WebServer.class).port(), System.currentTimeMillis() - startTime))
                 .exceptionally(throwable -> {
                     LOG.error("While starting application", throwable);
                     System.exit(1);
@@ -72,22 +75,39 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 });
     }
 
-    CatalogApplication(Config config, Tracer tracer, AuthServiceGrpc.AuthServiceFutureStub authService) {
+    private final Map<Class<?>, Object> instanceByType = new ConcurrentHashMap<>();
+
+    public <T> T put(Class<T> clazz, T instance) {
+        return (T) instanceByType.put(clazz, instance);
+    }
+
+    public <T> T get(Class<T> clazz) {
+        return (T) instanceByType.get(clazz);
+    }
+
+    CatalogApplication(Config config, Tracer tracer, UserAccessClient userAccessClient) {
         put(Config.class, config);
 
+        put(UserAccessClient.class, userAccessClient);
+
         AtomicReference<ReadinessSample> lastReadySample = new AtomicReference<>(new ReadinessSample(false, System.currentTimeMillis()));
-
-        // reactive postgres client
-        Vertx vertx = Vertx.vertx(); // create vertx instance to handle io of sql-client
-        SQLClient sqlClient = new HealthAwareSQLClient(initReactiveSqlClient(config.get("pgpool"), vertx), lastReadySample);
-
-        // initialize health, including a database connectivity wait-loop
-        Health health = new Health(config, sqlClient, lastReadySample, () -> get(WebServer.class));
 
         // schema migration using flyway and jdbc
         migrateDatabaseSchema(config.get("flyway"));
 
-        DatasetRepository repository = new DatasetRepository(sqlClient);
+        DbClient dbClient = DbClient.builder()
+                .config(config.get("db"))
+                .build();
+
+        HealthSupport health = HealthSupport.builder()
+                .addLiveness(DbClientHealthCheck.create(dbClient))
+                .addReadiness()
+                .build();
+
+        // initialize health, including a database connectivity wait-loop
+        // Health health = new Health(config, sqlClient, lastReadySample, () -> get(WebServer.class));
+
+        DatasetRepository repository = new DatasetRepository(dbClient);
 
         put(DatasetRepository.class, repository);
 
@@ -130,61 +150,22 @@ public class CatalogApplication extends DefaultHelidonApplication {
             LOG.info("Subscribed upstream");
         }
 
-        // dataset-access grpc client
-        put(AuthServiceGrpc.AuthServiceFutureStub.class, authService);
-
-        CatalogGrpcService dataSetGrpcService = new CatalogGrpcService(repository, authService);
-        put(CatalogGrpcService.class, dataSetGrpcService);
-
-        GrpcServer grpcServer = GrpcServer.create(
-                GrpcServerConfiguration.builder(config.get("grpcserver"))
-                        .tracer(tracer)
-                        .tracingConfig(GrpcTracingConfig.builder()
-                                .withStreaming()
-                                .withVerbosity()
-                                .withOperationName(new OperationNameConstructor() {
-                                    @Override
-                                    public <ReqT, RespT> String constructOperationName(MethodDescriptor<ReqT, RespT> method) {
-                                        return "Grpc server received " + method.getFullMethodName();
-                                    }
-                                })
-                                .withTracedAttributes(ServerRequestAttribute.CALL_ATTRIBUTES,
-                                        ServerRequestAttribute.HEADERS,
-                                        ServerRequestAttribute.METHOD_NAME)
-                                .build()
-                        ),
-                GrpcRouting.builder()
-                        .intercept(new AuthorizationInterceptor())
-                        .register(dataSetGrpcService)
-                        .build()
-        );
-        put(GrpcServer.class, grpcServer);
-
         Routing routing = Routing.builder()
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
                 .register(WebTracingConfig.create(config.get("tracing")))
-                .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(health)
-                .register("/catalog", new CatalogHttpService(repository, catalogSignatureVerifier))
-                .register("/rpc", new HelidonGrpcWebTranscoding(
-                        () -> ManagedChannelBuilder
-                                .forAddress("localhost", Optional.of(grpcServer)
-                                        .filter(GrpcServer::isRunning)
-                                        .map(GrpcServer::port)
-                                        .orElseThrow())
-                                .usePlaintext()
-                                .build(),
-                        dataSetGrpcService
-                ))
+                .register(new CatalogHttpService(repository, catalogSignatureVerifier, userAccessClient))
                 .build();
+
         put(Routing.class, routing);
 
-        WebServer webServer = WebServer.create(
-                ServerConfiguration.builder(config.get("webserver"))
-                        .tracer(tracer)
-                        .build(),
-                routing);
+        WebServer webServer = WebServer.builder()
+                .config(config.get("webserver"))
+                .tracer(tracer)
+                .addMediaSupport(ProtobufJsonSupport.create())
+                .routing(routing)
+                .build();
         put(WebServer.class, webServer);
     }
 
@@ -195,6 +176,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
                         flywayConfig.get("user").asString().orElse("rdc"),
                         flywayConfig.get("password").asString().orElse("rdc")
                 )
+                .connectRetries(flywayConfig.get("connect-retries").asInt().orElse(120))
                 .load();
         flyway.migrate();
     }
@@ -230,23 +212,18 @@ public class CatalogApplication extends DefaultHelidonApplication {
         }
     }
 
-    private SQLClient initReactiveSqlClient(Config config, Vertx vertx) {
-        Config connectConfig = config.get("connect-options");
-        JsonObject postgreSQLClientConfig = new JsonObject()
-                .put("host", connectConfig.get("host").asString().orElse("localhost"))
-                .put("port", connectConfig.get("port").asInt().orElse(15432))
-                .put("username", connectConfig.get("user").asString().orElse("rdc"))
-                .put("password", connectConfig.get("password").asString().orElse("rdc"))
-                .put("database", connectConfig.get("database").asString().orElse("rdc"));
-        SQLClient sqlClient = PostgreSQLClient.createShared(vertx, postgreSQLClientConfig);
-        return sqlClient;
+    public Single<CatalogApplication> start() {
+        return ofNullable(get(WebServer.class))
+                .map(webServer -> webServer.start().map(ws -> this))
+                .orElse(Single.just(this));
     }
 
-    @Override
-    public CompletionStage<HelidonApplication> stop() {
-        return super.stop()
-                .thenCombine(CompletableFuture.runAsync(() -> get(SQLClient.class).close()), (a, v) -> this)
+    public Single<CatalogApplication> stop() {
+        return Single.create(ofNullable(get(WebServer.class))
+                .map(WebServer::shutdown)
+                .orElse(Single.empty())
                 .thenCombine(CompletableFuture.runAsync(() -> ofNullable(get(DatasetUpstreamGooglePubSubIntegration.class)).ifPresent(DatasetUpstreamGooglePubSubIntegration::close)), (a, v) -> this)
-                .thenCombine(CompletableFuture.runAsync(() -> ofNullable(get(PubSub.class)).ifPresent(PubSub::close)), (a, v) -> this);
+                .thenCombine(CompletableFuture.runAsync(() -> ofNullable(get(PubSub.class)).ifPresent(PubSub::close)), (a, v) -> this)
+        );
     }
 }

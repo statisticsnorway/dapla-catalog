@@ -1,14 +1,9 @@
 package no.ssb.dapla.catalog.dataset;
 
+import io.helidon.common.reactive.Multi;
+import io.helidon.common.reactive.Single;
+import io.helidon.dbclient.DbClient;
 import io.helidon.metrics.RegistryFactory;
-import io.reactivex.Completable;
-import io.reactivex.Flowable;
-import io.reactivex.Maybe;
-import io.reactivex.Single;
-import io.vertx.core.json.JsonArray;
-import io.vertx.ext.sql.UpdateResult;
-import io.vertx.reactivex.ext.sql.SQLClient;
-import io.vertx.reactivex.ext.sql.SQLRowStream;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
@@ -24,83 +19,81 @@ import java.time.ZoneOffset;
 public class DatasetRepository {
     private static final Logger LOG = LoggerFactory.getLogger(DatasetRepository.class);
 
-    private final SQLClient client;
+    private final DbClient client;
 
     private final Timer listTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("dataset.repository.list");
     private final Timer readTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("dataset.repository.read");
     private final Timer writeTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("dataset.repository.write");
     private final Timer deleteTimer = RegistryFactory.getInstance().getRegistry(MetricRegistry.Type.APPLICATION).timer("dataset.repository.delete");
 
-    public DatasetRepository(SQLClient client) {
+    public DatasetRepository(DbClient client) {
         this.client = client;
     }
 
-    public Flowable<DatasetId> listByPrefix(String prefix, int limit) {
-        JsonArray params = new JsonArray().add(prefix + "%").add(limit);
-        return client
-                .rxQueryStreamWithParams("SELECT DISTINCT ON (path) " +
-                        " path, version, document FROM Dataset WHERE path LIKE ? " +
-                        " ORDER BY path, version DESC " +
-                        " LIMIT ?", params)
-                .flatMapPublisher(SQLRowStream::toFlowable)
-                .map(jsonArray ->
-                    ProtobufJsonUtils.toPojo(jsonArray.getString(2), Dataset.class))
-                .map(Dataset::getId);
+    public Multi<DatasetId> listByPrefix(String prefix, int limit) {
+        return client.execute(exec -> exec.query("""
+                        SELECT DISTINCT ON (path) path, version, document::JSON
+                        FROM Dataset WHERE path LIKE ?
+                        ORDER BY path, version DESC LIMIT ?""",
+                prefix + "%", limit)
+                .map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column(3).as(String.class), Dataset.class))
+                .map(Dataset::getId)
+        );
     }
 
-    public Flowable<Dataset> listDatasets(String pathPart, int limit) {
-        JsonArray params = new JsonArray().add( (pathPart != null && pathPart.length() >0) ? "%" + pathPart + "%" : "%").add(limit);
-        return client
-                .rxQueryStreamWithParams("SELECT DISTINCT ON (path) " +
-                        " path, document FROM Dataset WHERE path LIKE ? " +
-                        " ORDER BY path, version DESC " +
-                        " LIMIT ?", params)
-                .flatMapPublisher(SQLRowStream::toFlowable)
-                .map(jsonArray ->
-                        ProtobufJsonUtils.toPojo(jsonArray.getString(1), Dataset.class))
-                ;
+    public Multi<Dataset> listDatasets(String pathPart, int limit) {
+        return client.execute(exec -> exec.query("""
+                        SELECT DISTINCT ON (path) path, document::JSON
+                        FROM Dataset
+                        WHERE path LIKE ?
+                        ORDER BY path, version DESC LIMIT ?""",
+                (pathPart != null && pathPart.length() > 0) ? "%" + pathPart + "%" : "%", limit)
+                .map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column(2).as(String.class), Dataset.class))
+        );
     }
 
     /**
      * Get the latest dataset with the given path
      */
-    public Maybe<Dataset> get(String path) {
+    public Single<Dataset> get(String path) {
         return get(path, System.currentTimeMillis());
     }
 
     /**
      * Get the dataset that was the most recent at a given time
      */
-    public Maybe<Dataset> get(String path, long timestamp) {
-        JsonArray params = new JsonArray()
-                .add(path)
-                .add(LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC).toString());
-        return client
-                .rxQuerySingleWithParams("SELECT document FROM Dataset WHERE path = ? AND version <= ? ORDER BY version DESC LIMIT 1", params)
-                .map(jsonArray -> ProtobufJsonUtils.toPojo(jsonArray.getString(0), Dataset.class));
+    public Single<Dataset> get(String path, long timestamp) {
+        return client.execute(exec -> exec.get("""
+                        SELECT document::JSON
+                        FROM Dataset
+                        WHERE path = ? AND version <= ?
+                        ORDER BY version DESC LIMIT 1""",
+                path, LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC))
+                .flatMapSingle(dbRowOpt -> dbRowOpt
+                        .map(dbRow -> Single.just(ProtobufJsonUtils.toPojo(dbRow.column(1).as(String.class), Dataset.class)))
+                        .orElseGet(Single::empty))
+        );
     }
 
-    public Single<Integer> create(Dataset dataset) {
+    public Single<Long> create(Dataset dataset) {
         String jsonDoc = ProtobufJsonUtils.toString(dataset);
-        long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? System.currentTimeMillis() : dataset.getId().getTimestamp();
-        JsonArray params = new JsonArray()
-                .add(dataset.getId().getPath())
-                .add(LocalDateTime.ofInstant(Instant.ofEpochMilli(effectiveTimestamp), ZoneOffset.UTC).toString())
-                .add(jsonDoc)
-                .add(jsonDoc);
-        return client
-                .rxUpdateWithParams("INSERT INTO Dataset(path, version, document) VALUES(?, ?, ?) ON CONFLICT (path, version) DO UPDATE SET document = ?", params)
-                .map(UpdateResult::getUpdated);
+        long now = System.currentTimeMillis();
+        long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? now : dataset.getId().getTimestamp();
+        return client.execute(exec -> exec.insert("""
+                        INSERT INTO Dataset(path, version, document) VALUES(?, ?, ?::JSON)
+                        ON CONFLICT (path, version) DO UPDATE SET document = ?::JSON""",
+                dataset.getId().getPath(),
+                LocalDateTime.ofInstant(Instant.ofEpochMilli(effectiveTimestamp), ZoneOffset.UTC),
+                jsonDoc,
+                jsonDoc));
     }
 
-    public Single<Integer> delete(String id) {
-        JsonArray params = new JsonArray().add(id);
-        return client
-                .rxUpdateWithParams("DELETE FROM Dataset WHERE path = ?", params)
-                .map(UpdateResult::getUpdated);
+    public Single<Long> delete(String path, long timestamp) {
+        return client.execute(exec -> exec.delete("DELETE FROM Dataset WHERE path = ? AND version = ?", path,
+                LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)));
     }
 
-    public Completable deleteAllDatasets() {
-        return client.rxUpdate("TRUNCATE TABLE Dataset").ignoreElement();
+    public Single<Long> deleteAllDatasets() {
+        return client.execute(exec -> exec.dml("TRUNCATE TABLE Dataset"));
     }
 }

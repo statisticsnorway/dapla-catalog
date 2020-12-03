@@ -84,12 +84,14 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
                     .setPseudoConfig(PseudoConfig.parseFrom(datasetMeta.getPseudoConfig().toByteString())) // use serialization to cast, assume they are compatible
                     .build();
             repository.create(dataset)
-                    .doOnSuccess(rowsUpdated -> {
-                        consumer.ack();
-                        LOG.trace("Saved Dataset. json='{}'", ProtobufJsonUtils.toString(dataset));
-                    })
-                    .doOnError(throwable -> LOG.error("Error while processing message, waiting for ack deadline before re-delivery", throwable))
-                    .subscribe();
+                    .subscribe(
+                            rowsUpdated -> {
+                                consumer.ack();
+                                LOG.trace("Saved Dataset. json='{}'", ProtobufJsonUtils.toString(dataset));
+                            },
+                            throwable -> LOG.error("Error while processing message, waiting for ack deadline before re-delivery", throwable)
+                    );
+
         } catch (Throwable t) {
             LOG.error("Error while processing message, waiting for ack deadline before re-delivery", t);
         }

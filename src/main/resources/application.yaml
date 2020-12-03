@@ -4,27 +4,20 @@ webserver:
   access-log:
     format: "%h %u %t %r %s %b %{Referer}i %T"
 
-grpcserver:
-  host: 0.0.0.0
-  port: 10118
-
-pgpool:
-  connect-options:
-    port: 25432
-    host: localhost
-    database: catalog
-    user: catalog
-    password: catalog
-  pool-options:
-    max-size: 5
+db:
+  source: "jdbc"
+  connection:
+    url: "jdbc:postgresql://localhost:25432/catalog"
+    username: "catalog"
+    password: "catalog"
+  statements:
+    ping: "DO 0"
 
 flyway:
   url: jdbc:postgresql://localhost:25432/catalog
   user: catalog
   password: catalog
-
-init:
-  db-connectivity-attempts: 120
+  connect-retries: 120
 
 health:
   readiness:

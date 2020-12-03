@@ -30,6 +30,5 @@ ENV PATH=/jdk/bin:$PATH
 WORKDIR /app
 
 EXPOSE 10110
-EXPOSE 10118
 
 CMD ["./run.sh"]
