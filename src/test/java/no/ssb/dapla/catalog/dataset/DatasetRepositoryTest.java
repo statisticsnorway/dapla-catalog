@@ -30,6 +30,15 @@ class DatasetRepositoryTest {
     }
 
     @Test
+    void listingByPrefixAndDepth() {
+        // TODO:
+        //  Add some data.
+        //  Make sure to use weird chars.
+        //  Query with and without depth.
+        //  Query with and without limit.
+    }
+
+    @Test
     void thatDeleteWorks() {
         DatasetRepository repository = application.get(DatasetRepository.class);
 
