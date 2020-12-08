@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.regex.Pattern;
 
 public class DatasetRepository {
     private static final Logger LOG = LoggerFactory.getLogger(DatasetRepository.class);
@@ -28,6 +29,12 @@ public class DatasetRepository {
 
     public DatasetRepository(DbClient client) {
         this.client = client;
+    }
+
+    public static String replaceInvalidChars(String original) {
+        // TODO: Constants.
+        var invalidCharPattern = Pattern.compile("[^\\w]+");
+        return invalidCharPattern.matcher(original).replaceAll("_");
     }
 
     public Multi<DatasetId> listByPrefix(String prefix, int limit) {
@@ -95,5 +102,30 @@ public class DatasetRepository {
 
     public Single<Long> deleteAllDatasets() {
         return client.execute(exec -> exec.dml("TRUNCATE TABLE Dataset"));
+    }
+
+    public Multi<Dataset> listByPrefixAndDepth(String prefix, String depth, Integer limit) {
+
+        var ltreePrefix = replaceInvalidChars(prefix);
+
+        // The ltree does not support special chars so we still rely on the
+        // path to filter out false positives.
+
+        return client.execute(exec -> exec.createQuery("""
+                SELECT * 
+                FROM Dataset 
+                WHERE lpath ~ :lprefix_wildcard
+                  AND nlevel(lpath) <= nlevel(:lprefix) + :depth
+                  AND path LIKE :prefix
+                LIMIT :limit
+                """
+        )
+                .addParam(":lprefix_wildcard", ltreePrefix + ".*")
+                .addParam(":lprefix", ltreePrefix)
+                .addParam(":prefix", prefix + '%')
+                .addParam(":depth", depth)
+                .addParam(":limit", limit)
+                .execute()
+        ).map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column("document").as(String.class), Dataset.class));
     }
 }
