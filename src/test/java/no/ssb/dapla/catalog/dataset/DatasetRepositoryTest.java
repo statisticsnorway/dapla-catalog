@@ -12,8 +12,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static no.ssb.dapla.catalog.dataset.DatasetRepository.escapePath;
+import static no.ssb.dapla.catalog.dataset.DatasetRepository.unescapePath;
 import static org.assertj.core.api.Assertions.assertThat;
 
 
@@ -29,13 +35,77 @@ class DatasetRepositoryTest {
         application.get(DatasetRepository.class).deleteAllDatasets().await(30, TimeUnit.SECONDS);
     }
 
+    Dataset createDataset(String path, Instant time) {
+        return Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath(path)
+                        .setTimestamp(time.toEpochMilli()
+                        ).build())
+                .setState(DatasetState.PRODUCT)
+                .setValuation(Valuation.INTERNAL)
+                .setParentUri(path)
+                .build();
+    }
+
     @Test
-    void listingByPrefixAndDepth() {
-        // TODO:
-        //  Add some data.
-        //  Make sure to use weird chars.
-        //  Query with and without depth.
-        //  Query with and without limit.
+    void testEscapePath() {
+        var tests = List.of(
+                "some weird/p@th/to_escape",
+                "1234%&4321/_4321"
+        );
+        for (String test : tests) {
+            assertThat(unescapePath(escapePath(test))).isEqualTo(test);
+        }
+    }
+
+    @Test
+    void listingDatasetByPrefix() {
+        DatasetRepository repository = application.get(DatasetRepository.class);
+
+        var now = Instant.now();
+        repository.create(createDataset("/a/a/1", now)).await();
+        repository.create(createDataset("/a/1", now.minus(1, ChronoUnit.DAYS))).await();
+        repository.create(createDataset("/a/2", now)).await();
+        repository.create(createDataset("/a/1", now)).await();
+        repository.create(createDataset("/a/b/1", now)).await();
+        repository.create(createDataset("/a/b/2", now)).await();
+        repository.create(createDataset("/a/3", now)).await();
+
+        var foldersNoLimit = repository.listDatasetsByPrefix(
+                "/a", ZonedDateTime.now(), Integer.MAX_VALUE)
+                .collectList().await();
+        assertThat(foldersNoLimit).extracting(Dataset::getId).extracting(DatasetId::getPath)
+                .containsExactly(
+                        "/a/1",
+                        "/a/2",
+                        "/a/3"
+                );
+    }
+
+    @Test
+    void listingFoldersByPrefix() {
+        DatasetRepository repository = application.get(DatasetRepository.class);
+
+        var now = Instant.now();
+        repository.create(createDataset("/a/a/1", now)).await();
+        repository.create(createDataset("/a/a/1", now.minus(1, ChronoUnit.DAYS))).await();
+        repository.create(createDataset("/a/a/2", now)).await();
+        repository.create(createDataset("/a/a/3", now)).await();
+        repository.create(createDataset("/a/b/1", now)).await();
+        repository.create(createDataset("/a/b/2", now)).await();
+        repository.create(createDataset("/a/c", now)).await();
+        repository.create(createDataset("/a/d/@/alpha", now)).await();
+        repository.create(createDataset("/a/d/β/beta", now)).await();
+
+        var foldersNoLimit = repository.listFoldersByPrefix(
+                "/a", ZonedDateTime.now(), Integer.MAX_VALUE)
+                .collectList().await();
+        assertThat(foldersNoLimit).extracting(DatasetId::getPath)
+                .containsExactly(
+                        "/a/a",
+                        "/a/b",
+                        "/a/d"
+                );
     }
 
     @Test

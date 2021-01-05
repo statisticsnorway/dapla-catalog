@@ -15,10 +15,16 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DatasetRepository {
     private static final Logger LOG = LoggerFactory.getLogger(DatasetRepository.class);
+
+    private static final Pattern CODEPOINT = Pattern.compile("_[0-9]{4}");
+    private static final Pattern VALID_CHARS = Pattern.compile("([^\\w]|_)+");
 
     private final DbClient client;
 
@@ -31,12 +37,52 @@ public class DatasetRepository {
         this.client = client;
     }
 
-    public static String replaceInvalidChars(String original) {
-        // TODO: Constants.
-        var invalidCharPattern = Pattern.compile("[^\\w]+");
-        return invalidCharPattern.matcher(original).replaceAll("_");
+    /**
+     * Unescape all characters that could cause problems with the ltree column.
+     */
+    public static String unescapePath(String path) {
+        if (path.contains(".")) {
+            if (!path.startsWith(".")) {
+                path = "." + path;
+            }
+            return Stream.of(path.split("\\."))
+                    .map(DatasetRepository::unescapePath)
+                    .collect(Collectors.joining("/"));
+        }
+        return CODEPOINT.matcher(path).replaceAll(match -> {
+            var point = Integer.parseInt(match.group().substring(1, 5));
+            return String.valueOf(Character.toChars(point));
+        });
     }
 
+    /**
+     * Escape all characters that could cause problems with the ltree column.
+     */
+    public static String escapePath(String path) {
+        if (path.contains("/")) {
+            if (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+            return Stream.of(path.split("/"))
+                    .map(DatasetRepository::escapePath)
+                    .collect(Collectors.joining("."));
+        }
+        var replaced = VALID_CHARS.matcher(path).replaceAll(match -> {
+                return match.group().codePoints()
+                        .mapToObj(codePoint -> String.format("!%04d", codePoint))
+                        .collect(Collectors.joining());
+        });
+        return replaced.replaceAll("!", "_");
+    }
+
+    public static String replaceInvalidChars(String original) {
+        if (original.startsWith("/")) {
+            original = original.substring(1);
+        }
+        return original.replace('/', '.');
+    }
+
+    // TODO: Limit is useless without offset.
     public Multi<DatasetId> listByPrefix(String prefix, int limit) {
         return client.execute(exec -> exec.query("""
                         SELECT DISTINCT ON (path) path, version, document::JSON
@@ -48,6 +94,7 @@ public class DatasetRepository {
         );
     }
 
+    // TODO: Limit is useless without offset.
     public Multi<Dataset> listDatasets(String pathPart, int limit) {
         return client.execute(exec -> exec.query("""
                         SELECT DISTINCT ON (path) path, document::JSON
@@ -87,9 +134,10 @@ public class DatasetRepository {
         long now = System.currentTimeMillis();
         long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? now : dataset.getId().getTimestamp();
         return client.execute(exec -> exec.insert("""
-                        INSERT INTO Dataset(path, version, document) VALUES(?, ?, ?::JSON)
+                        INSERT INTO Dataset(path, path_ltree, version, document) VALUES(?, ltree(?), ?, ?::JSON)
                         ON CONFLICT (path, version) DO UPDATE SET document = ?::JSON""",
                 dataset.getId().getPath(),
+                escapePath(dataset.getId().getPath()),
                 LocalDateTime.ofInstant(Instant.ofEpochMilli(effectiveTimestamp), ZoneOffset.UTC),
                 jsonDoc,
                 jsonDoc));
@@ -104,27 +152,59 @@ public class DatasetRepository {
         return client.execute(exec -> exec.dml("TRUNCATE TABLE Dataset"));
     }
 
-    public Multi<Dataset> listByPrefixAndDepth(String prefix, String depth, Integer limit) {
-
-        var ltreePrefix = replaceInvalidChars(prefix);
-
-        // The ltree does not support special chars so we still rely on the
-        // path to filter out false positives.
-
-        return client.execute(exec -> exec.createQuery("""
-                SELECT * 
-                FROM Dataset 
-                WHERE lpath ~ :lprefix_wildcard
-                  AND nlevel(lpath) <= nlevel(:lprefix) + :depth
-                  AND path LIKE :prefix
-                LIMIT :limit
-                """
+    // TODO: Limit is useless without offset.
+    public Multi<DatasetId> listFoldersByPrefix(String prefix, ZonedDateTime timestamp, Integer limit) {
+        return client.execute(dbExecute -> dbExecute.createQuery("""
+                        -- Folders
+                        SELECT subpath(path_ltree, 0, nlevel(ltree(:prefix)) + 1) as folder_path,
+                               MAX(version)                                        as version
+                        FROM dataset
+                        WHERE version <= :version AND path_ltree <@ ltree(:prefix)
+                          AND nlevel(ltree(:prefix)) + 1 < nlevel(path_ltree) 
+                        GROUP BY folder_path LIMIT :limit
+                        """
         )
-                .addParam(":lprefix_wildcard", ltreePrefix + ".*")
-                .addParam(":lprefix", ltreePrefix)
-                .addParam(":prefix", prefix + '%')
-                .addParam(":depth", depth)
-                .addParam(":limit", limit)
+                .addParam("prefix", escapePath(prefix))
+                // TODO: Bug in DbClient. Map needs to be the same size
+                .addParam("dummy1", "")
+                .addParam("dummy2", "")
+                .addParam("version", timestamp.toOffsetDateTime())
+                .addParam("limit", limit)
+                .execute()
+        ).map(row -> DatasetId.newBuilder()
+                .setPath(unescapePath(row.column("folder_path").as(String.class)))
+                .setTimestamp(row.column("version").as(ZonedDateTime.class).toInstant().toEpochMilli())
+                .build()
+        );
+
+    }
+
+    public Multi<Dataset> listDatasetsByPrefix(String prefix, ZonedDateTime timestamp, Integer limit) {
+        return client.execute(exec -> exec.createQuery("""
+                        WITH latest AS (
+                            SELECT path_ltree,
+                                   MAX(version) as version
+                            FROM dataset
+                            WHERE version <= :version
+                              AND path_ltree <@ ltree(:prefix)
+                              AND nlevel(path_ltree) = nlevel(ltree(:prefix)) + 1
+                            GROUP BY path_ltree
+                        )
+                        SELECT l.path_ltree,
+                               l.version,
+                               document
+                        FROM latest l
+                                 LEFT JOIN dataset d
+                                            ON l.path_ltree = d.path_ltree AND l.version = d.version
+                        ORDER BY l.path_ltree
+                        LIMIT :limit
+                        """
+        )
+                .addParam("prefix", escapePath(prefix))
+                // TODO: Bug in DbClient. Map needs to be the same size
+                .addParam("dummy1", "")
+                .addParam("version", timestamp.toOffsetDateTime())
+                .addParam("limit", limit)
                 .execute()
         ).map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column("document").as(String.class), Dataset.class));
     }
