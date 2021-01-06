@@ -50,8 +50,8 @@ class DatasetRepositoryTest {
     @Test
     void testEscapePath() {
         var tests = List.of(
-                "some weird/p@th/to_escape",
-                "1234%&4321/_4321"
+                "/some weird/p@th/to_escape",
+                "/1234%&4321/_4321"
         );
         for (String test : tests) {
             assertThat(unescapePath(escapePath(test))).isEqualTo(test);

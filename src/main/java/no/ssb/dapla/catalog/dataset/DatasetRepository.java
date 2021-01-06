@@ -86,9 +86,9 @@ public class DatasetRepository {
     public Multi<DatasetId> listByPrefix(String prefix, int limit) {
         return client.execute(exec -> exec.query("""
                         SELECT DISTINCT ON (path) path, version, document::JSON
-                        FROM Dataset WHERE path LIKE ?
+                        FROM Dataset WHERE path <@ ltree(?)
                         ORDER BY path, version DESC LIMIT ?""",
-                prefix + "%", limit)
+                escapePath(prefix), limit)
                 .map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column(3).as(String.class), Dataset.class))
                 .map(Dataset::getId)
         );
@@ -99,10 +99,14 @@ public class DatasetRepository {
         return client.execute(exec -> exec.query("""
                         SELECT DISTINCT ON (path) path, document::JSON
                         FROM Dataset
-                        WHERE path LIKE ?
-                        ORDER BY path, version DESC LIMIT ?""",
-                (pathPart != null && pathPart.length() > 0) ? "%" + pathPart + "%" : "%", limit)
-                .map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column(2).as(String.class), Dataset.class))
+                        WHERE path <@ ltree(?)
+                        ORDER BY path, version DESC LIMIT ?
+                        """,
+                pathPart != null && pathPart.length() > 0
+                        ? escapePath(pathPart)
+                        : "",
+                limit
+                ).map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column(2).as(String.class), Dataset.class))
         );
     }
 
@@ -120,9 +124,9 @@ public class DatasetRepository {
         return client.execute(exec -> exec.get("""
                         SELECT document::JSON
                         FROM Dataset
-                        WHERE path = ? AND version <= ?
+                        WHERE path = ltree(?) AND version <= ?
                         ORDER BY version DESC LIMIT 1""",
-                path, LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC))
+                escapePath(path), LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC))
                 .flatMapSingle(dbRowOpt -> dbRowOpt
                         .map(dbRow -> Single.just(ProtobufJsonUtils.toPojo(dbRow.column(1).as(String.class), Dataset.class)))
                         .orElseGet(Single::empty))
@@ -134,9 +138,8 @@ public class DatasetRepository {
         long now = System.currentTimeMillis();
         long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? now : dataset.getId().getTimestamp();
         return client.execute(exec -> exec.insert("""
-                        INSERT INTO Dataset(path, path_ltree, version, document) VALUES(?, ltree(?), ?, ?::JSON)
+                        INSERT INTO Dataset(path, version, document) VALUES(ltree(?), ?, ?::JSON)
                         ON CONFLICT (path, version) DO UPDATE SET document = ?::JSON""",
-                dataset.getId().getPath(),
                 escapePath(dataset.getId().getPath()),
                 LocalDateTime.ofInstant(Instant.ofEpochMilli(effectiveTimestamp), ZoneOffset.UTC),
                 jsonDoc,
@@ -144,7 +147,10 @@ public class DatasetRepository {
     }
 
     public Single<Long> delete(String path, long timestamp) {
-        return client.execute(exec -> exec.delete("DELETE FROM Dataset WHERE path = ? AND version = ?", path,
+        return client.execute(exec -> exec.delete("""
+                        DELETE FROM Dataset WHERE path = ltree(?) AND version = ?
+                        """,
+                escapePath(path),
                 LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)));
     }
 
@@ -156,12 +162,14 @@ public class DatasetRepository {
     public Multi<DatasetId> listFoldersByPrefix(String prefix, ZonedDateTime timestamp, Integer limit) {
         return client.execute(dbExecute -> dbExecute.createQuery("""
                         -- Folders
-                        SELECT subpath(path_ltree, 0, nlevel(ltree(:prefix)) + 1) as folder_path,
+                        SELECT subpath(path, 0, nlevel(ltree(:prefix)) + 1) as folder_path,
                                MAX(version)                                        as version
                         FROM dataset
-                        WHERE version <= :version AND path_ltree <@ ltree(:prefix)
-                          AND nlevel(ltree(:prefix)) + 1 < nlevel(path_ltree) 
-                        GROUP BY folder_path LIMIT :limit
+                        WHERE version <= :version AND path <@ ltree(:prefix)
+                          AND nlevel(ltree(:prefix)) + 1 < nlevel(path) 
+                        GROUP BY folder_path 
+                        ORDER BY folder_path
+                        LIMIT :limit
                         """
         )
                 .addParam("prefix", escapePath(prefix))
@@ -182,21 +190,21 @@ public class DatasetRepository {
     public Multi<Dataset> listDatasetsByPrefix(String prefix, ZonedDateTime timestamp, Integer limit) {
         return client.execute(exec -> exec.createQuery("""
                         WITH latest AS (
-                            SELECT path_ltree,
+                            SELECT path,
                                    MAX(version) as version
                             FROM dataset
                             WHERE version <= :version
-                              AND path_ltree <@ ltree(:prefix)
-                              AND nlevel(path_ltree) = nlevel(ltree(:prefix)) + 1
-                            GROUP BY path_ltree
+                              AND path <@ ltree(:prefix)
+                              AND nlevel(path) = nlevel(ltree(:prefix)) + 1
+                            GROUP BY path
                         )
-                        SELECT l.path_ltree,
+                        SELECT l.path,
                                l.version,
                                document
                         FROM latest l
                                  LEFT JOIN dataset d
-                                            ON l.path_ltree = d.path_ltree AND l.version = d.version
-                        ORDER BY l.path_ltree
+                                            ON l.path = d.path AND l.version = d.version
+                        ORDER BY l.path
                         LIMIT :limit
                         """
         )
