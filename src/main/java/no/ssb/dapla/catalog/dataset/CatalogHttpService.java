@@ -6,33 +6,22 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.helidon.common.http.Http;
 import io.helidon.common.reactive.Single;
-import io.helidon.webserver.Handler;
-import io.helidon.webserver.Routing;
-import io.helidon.webserver.ServerRequest;
-import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
+import io.helidon.webserver.*;
 import io.opentracing.Span;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.Privilege;
 import no.ssb.dapla.catalog.UserAccessClient;
-import no.ssb.dapla.catalog.protobuf.Dataset;
-import no.ssb.dapla.catalog.protobuf.DatasetId;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.DeleteDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixRequest;
-import no.ssb.dapla.catalog.protobuf.ListByPrefixResponse;
-import no.ssb.dapla.catalog.protobuf.PseudoConfig;
-import no.ssb.dapla.catalog.protobuf.SignedDataset;
-import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
+import no.ssb.dapla.catalog.protobuf.*;
 import no.ssb.dapla.dataset.api.DatasetMetaAll;
 import no.ssb.helidon.application.Tracing;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.ZonedDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -49,16 +38,14 @@ public class CatalogHttpService implements Service {
     final DatasetRepository repository;
     final UserAccessClient userAccessClient;
     final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+    final ObjectMapper objectMapper = new ObjectMapper();
+    private final int limit = 100;
 
     public CatalogHttpService(DatasetRepository repository, CatalogSignatureVerifier verifier, UserAccessClient userAccessClient) {
         this.repository = repository;
         this.verifier = verifier;
         this.userAccessClient = userAccessClient;
     }
-
-    private final int limit = 100;
-
-    final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void update(Routing.Rules rules) {
@@ -69,6 +56,8 @@ public class CatalogHttpService implements Service {
         rules.get("/catalog", this::doGetList);
         rules.get("/catalog/{pathPart}", this::doGetList);
         rules.post("/catalog/write", Handler.create(SignedDataset.class, this::writeDataset)); // TODO Use PUT method here!
+        rules.get("/folder", this::listFolderByPrefix);
+        rules.get("/dataset", this::listDatasetByPrefix);
     }
 
     private Single<Dataset> repositoryGet(String path, long timestamp) {
@@ -81,6 +70,53 @@ public class CatalogHttpService implements Service {
         return repository.get(path);
     }
 
+    public void listDatasetByPrefix(ServerRequest req, ServerResponse res) {
+        var prefix = req.queryParams().first("prefix");
+        var limit = req.queryParams().first("limit")
+                .map(Integer::parseInt)
+                .orElse(100);
+        var version = req.queryParams().first("version")
+                .map(ZonedDateTime::parse)
+                .orElseGet(ZonedDateTime::now);
+
+        var result = repository.listDatasetsByPrefix(
+                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                version,
+                limit
+        );
+
+        result.map(Dataset::getId).collectList().subscribe(
+                datasets -> {
+                    res.status(Http.Status.OK_200);
+                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                }, res::send);
+    }
+
+    public void listFolderByPrefix(ServerRequest req, ServerResponse res) {
+        var prefix = req.queryParams().first("prefix");
+        var limit = req.queryParams().first("limit")
+                .map(Integer::parseInt)
+                .orElse(100);
+        var version = req.queryParams().first("version")
+                .map(ZonedDateTime::parse)
+                .orElseGet(ZonedDateTime::now);
+
+        var result = repository.listFoldersByPrefix(
+                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                version,
+                limit
+        );
+
+        result.collectList().subscribe(
+                datasets -> {
+                    res.status(Http.Status.OK_200);
+                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                }, res::send);
+    }
+
+    /**
+     * List all the elements under the prefix.
+     */
     public void listByPrefix(ServerRequest req, ServerResponse res, ListByPrefixRequest request) {
         Span span = spanFromHttp(req, "listByPrefix");
         try {
@@ -147,16 +183,6 @@ public class CatalogHttpService implements Service {
             } finally {
                 span.finish();
             }
-        }
-    }
-
-    static class HttpDeleteResponse {
-        final int status;
-        final DeleteDatasetResponse response;
-
-        HttpDeleteResponse(int status, DeleteDatasetResponse response) {
-            this.status = status;
-            this.response = response;
         }
     }
 
@@ -371,6 +397,16 @@ public class CatalogHttpService implements Service {
             } finally {
                 span.finish();
             }
+        }
+    }
+
+    static class HttpDeleteResponse {
+        final int status;
+        final DeleteDatasetResponse response;
+
+        HttpDeleteResponse(int status, DeleteDatasetResponse response) {
+            this.status = status;
+            this.response = response;
         }
     }
 }
