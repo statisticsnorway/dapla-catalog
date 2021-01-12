@@ -65,6 +65,21 @@ class CatalogHttpServiceTest {
         application.get(DatasetRepository.class).deleteAllDatasets().await(30, TimeUnit.SECONDS);
     }
 
+    void repositoryCreate(String path, Instant time) {
+        var dataset = Dataset.newBuilder().setId(
+                DatasetId.newBuilder()
+                        .setPath(path)
+                        .setTimestamp(time.toEpochMilli())
+                        .build()
+        ).build();
+        repositoryCreate(dataset);
+    }
+
+    void repositoryCreate(String path) {
+        var dataset = Dataset.newBuilder().setId(DatasetId.newBuilder().setPath(path).build()).build();
+        repositoryCreate(dataset);
+    }
+
     void repositoryCreate(Dataset dataset) {
         application.get(DatasetRepository.class).create(dataset).await(3, TimeUnit.SECONDS);
     }
@@ -338,16 +353,16 @@ class CatalogHttpServiceTest {
     void thatListByPrefixWorks() {
 
         // Create datasets, some with multiple versions
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/another/prefix").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/2").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/3").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unitisgood/forall").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/x-after/and/more/data").build()).build());
+        repositoryCreate("/another/prefix");
+        repositoryCreate("/unit-test/and/other/data");
+        repositoryCreate("/unit-test/and/other/data");
+        repositoryCreate("/unit-test/and/other/data");
+        repositoryCreate("/unit-test/with/data/1");
+        repositoryCreate("/unit-test/with/data/1");
+        repositoryCreate("/unit-test/with/data/2");
+        repositoryCreate("/unit-test/with/data/3");
+        repositoryCreate("/unitisgood/forall");
+        repositoryCreate("/x-after/and/more/data");
         ListByPrefixResponse response = listByPrefix("/unit", 100);
         List<DatasetId> entries = response.getEntriesList();
         assertThat(entries.size()).isEqualTo(5);
@@ -356,6 +371,76 @@ class CatalogHttpServiceTest {
         assertThat(entries.get(2).getPath()).isEqualTo("/unit-test/with/data/2");
         assertThat(entries.get(3).getPath()).isEqualTo("/unit-test/with/data/3");
         assertThat(entries.get(4).getPath()).isEqualTo("/unitisgood/forall");
+    }
+
+    @Test
+    void thatGetFoldersWorks() {
+        var emptyResponse = client.get("/folder?prefix=/&version=2018-08-19T16:02:42.00Z");
+
+        // Assert empty.
+        assertThat(emptyResponse.body()).isEqualToIgnoringWhitespace("""
+           {} 
+        """);
+
+        repositoryCreate("/foo/dataset1", Instant.ofEpochMilli(10000));
+        repositoryCreate("/foo/bar1/dataset1", Instant.ofEpochMilli(20000));
+        repositoryCreate("/foo/bar2/dataset1", Instant.ofEpochMilli(40000));
+        repositoryCreate("/bar/foo1/dataset1", Instant.ofEpochMilli(30000));
+        repositoryCreate("/bar/foo2/dataset1", Instant.ofEpochMilli(50000));
+
+        var rootResponse = client.get("/folder?prefix=/");
+        assertThat(rootResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "bar",
+                    "timestamp": "50000"
+                  }, {
+                    "path": "foo",
+                    "timestamp": "40000"
+                  }]
+                }
+                """);
+
+        // Note how the folder inherits the date of the latest child.
+        var pastRootResponse = client.get("/folder?prefix=/&version=1970-01-01T00:00:39Z");
+        assertThat(pastRootResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "bar",
+                    "timestamp": "30000"
+                  }, {
+                    "path": "foo",
+                    "timestamp": "20000"
+                  }]
+                }
+                """);
+
+        var fooResponse = client.get("/folder?prefix=/foo");
+        assertThat(fooResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/bar1",
+                    "timestamp": "20000"
+                  }, {
+                    "path": "/foo/bar2",
+                    "timestamp": "40000"
+                  }]
+                }
+                """);
+
+        var barResponse = client.get("/folder?prefix=/bar");
+        assertThat(barResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/bar/foo1",
+                    "timestamp": "30000"
+                  }, {
+                    "path": "/bar/foo2",
+                    "timestamp": "50000"
+                  }]
+                }
+                """);
+
     }
 
     @Test
