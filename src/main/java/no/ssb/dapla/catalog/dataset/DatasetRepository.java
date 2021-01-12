@@ -12,10 +12,7 @@ import org.eclipse.microprofile.metrics.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -86,9 +83,9 @@ public class DatasetRepository {
     public Multi<DatasetId> listByPrefix(String prefix, int limit) {
         return client.execute(exec -> exec.query("""
                         SELECT DISTINCT ON (path) path, version, document::JSON
-                        FROM Dataset WHERE path <@ ltree(?)
+                        FROM Dataset WHERE path ~ lquery(?)
                         ORDER BY path, version DESC LIMIT ?""",
-                escapePath(prefix), limit)
+                escapePath(prefix) + "*.*", limit)
                 .map(dbRow -> ProtobufJsonUtils.toPojo(dbRow.column(3).as(String.class), Dataset.class))
                 .map(Dataset::getId)
         );
@@ -126,7 +123,7 @@ public class DatasetRepository {
                         FROM Dataset
                         WHERE path = ltree(?) AND version <= ?
                         ORDER BY version DESC LIMIT 1""",
-                escapePath(path), LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC))
+                escapePath(path), Instant.ofEpochMilli(timestamp).atOffset(ZoneOffset.UTC))
                 .flatMapSingle(dbRowOpt -> dbRowOpt
                         .map(dbRow -> Single.just(ProtobufJsonUtils.toPojo(dbRow.column(1).as(String.class), Dataset.class)))
                         .orElseGet(Single::empty))
@@ -135,13 +132,14 @@ public class DatasetRepository {
 
     public Single<Long> create(Dataset dataset) {
         String jsonDoc = ProtobufJsonUtils.toString(dataset);
-        long now = System.currentTimeMillis();
-        long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? now : dataset.getId().getTimestamp();
+        //long now = System.currentTimeMillis();
+        // TODO: Protobuf refuses nulls. The following silently change 1970-01-01T00:00:00Z to now().
+        //long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? now : dataset.getId().getTimestamp();
         return client.execute(exec -> exec.insert("""
                         INSERT INTO Dataset(path, version, document) VALUES(ltree(?), ?, ?::JSON)
                         ON CONFLICT (path, version) DO UPDATE SET document = ?::JSON""",
                 escapePath(dataset.getId().getPath()),
-                LocalDateTime.ofInstant(Instant.ofEpochMilli(effectiveTimestamp), ZoneOffset.UTC),
+                Instant.ofEpochMilli(dataset.getId().getTimestamp()).atOffset(ZoneOffset.UTC),
                 jsonDoc,
                 jsonDoc));
     }
@@ -151,7 +149,7 @@ public class DatasetRepository {
                         DELETE FROM Dataset WHERE path = ltree(?) AND version = ?
                         """,
                 escapePath(path),
-                LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)));
+                Instant.ofEpochMilli(timestamp).atOffset(ZoneOffset.UTC)));
     }
 
     public Single<Long> deleteAllDatasets() {
