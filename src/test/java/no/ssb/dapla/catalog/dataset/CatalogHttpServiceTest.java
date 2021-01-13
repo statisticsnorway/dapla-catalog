@@ -21,6 +21,7 @@ import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
 import no.ssb.dapla.dataset.api.DatasetMetaAll;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.MockRegistryConfig;
 import no.ssb.testing.helidon.TestClient;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -97,8 +99,8 @@ class CatalogHttpServiceTest {
     @Test
     void thatCatalogSaveDataset() {
         DatasetMetaAll datasetMetaAll = createDatasetMetaAll(0);
-        byte[] signature = metadataSigner.sign(datasetMetaAll.toByteArray());
-        byte[] datasetMetaAllBytes = datasetMetaAll.toByteArray();
+        byte[] datasetMetaAllBytes = ProtobufJsonUtils.toString(datasetMetaAll).getBytes(StandardCharsets.UTF_8);
+        byte[] signature = metadataSigner.sign(datasetMetaAllBytes);
 
         String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", "user")
                 .sign(Algorithm.HMAC256("secret"))};
@@ -323,7 +325,8 @@ class CatalogHttpServiceTest {
     }
 
     String save(DatasetMetaAll dataset, String userId) {
-        byte[] datasetBytes = dataset.toByteArray();
+        byte[] datasetBytes = ProtobufJsonUtils.toString(dataset).getBytes(StandardCharsets.UTF_8);
+        //byte[] datasetBytes = dataset.toByteArray();
         byte[] signature = metadataSigner.sign(datasetBytes);
 
         String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", userId)
@@ -474,37 +477,38 @@ class CatalogHttpServiceTest {
 
     @Test
     void thatGettingAPreviousDatasetWorks() throws InterruptedException {
+
+        var time = Instant.now();
         Dataset old = Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setPath("a_dataset").build())
+                .setId(DatasetId.newBuilder().setPath("a_dataset")
+                        .setTimestamp(time.minusSeconds(1000).toEpochMilli()).build())
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
                 .setPseudoConfig(dummyPseudoConfig())
                 .build();
         repositoryCreate(old);
 
-        Thread.sleep(50L);
-
-        long timestamp = System.currentTimeMillis();
-
-        Thread.sleep(50L);
-
         repositoryCreate(
                 Dataset.newBuilder()
-                        .setId(DatasetId.newBuilder().setPath("a_dataset").build())
+                        .setId(DatasetId.newBuilder().setPath("a_dataset")
+                                .setTimestamp(time.minusSeconds(500).toEpochMilli()).build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
                         .setParentUri("a_location")
                         .build()
         );
 
-        assertThat(get("a_dataset", timestamp).getDataset()).isEqualTo(old);
+        assertThat(get("a_dataset", time.minusSeconds(501).toEpochMilli()).getDataset()).isEqualTo(old);
     }
 
     @Test
     void thatGetPreviousReturnsNothingWhenTimestampIsOld() {
         repositoryCreate(
                 Dataset.newBuilder()
-                        .setId(DatasetId.newBuilder().setPath("dataset_from_after_timestamp").build())
+                        .setId(DatasetId.newBuilder()
+                                .setPath("dataset_from_after_timestamp")
+                                .setTimestamp(101L)
+                                .build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
                         .setParentUri("a_location")

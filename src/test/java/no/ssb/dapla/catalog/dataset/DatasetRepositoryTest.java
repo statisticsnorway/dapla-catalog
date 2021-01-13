@@ -157,29 +157,28 @@ class DatasetRepositoryTest {
     void thatGetMostRecentAtAGivenTimeWorks() throws InterruptedException {
         DatasetRepository repository = application.get(DatasetRepository.class);
 
+        var time = Instant.now();
+
         Dataset ds1 = Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setPath("1").build())
+                .setId(DatasetId.newBuilder()
+                        .setPath("1")
+                        .setTimestamp(time.minusSeconds(1000).toEpochMilli()).build())
                 .setState(DatasetState.RAW)
                 .setValuation(Valuation.SHIELDED)
                 .setParentUri("gcs://some-file")
                 .build();
         repository.create(ds1).await();
 
-        Thread.sleep(50L);
-
-        long timestamp = System.currentTimeMillis();
-
-        Thread.sleep(50L);
-
         Dataset ds2 = Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setPath("1").build())
+                .setId(DatasetId.newBuilder().setPath("1")
+                        .setTimestamp(time.toEpochMilli()).build())
                 .setState(DatasetState.INPUT)
                 .setValuation(Valuation.INTERNAL)
                 .setParentUri("gcs://another-file")
                 .build();
         repository.create(ds2).await();
 
-        assertThat(repository.get("1", timestamp).await()).isEqualTo(ds1);
+        assertThat(repository.get("1", time.minusSeconds(500).toEpochMilli()).await()).isEqualTo(ds1);
     }
 
     @Test
