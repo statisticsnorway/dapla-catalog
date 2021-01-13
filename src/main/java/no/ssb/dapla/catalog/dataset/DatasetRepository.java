@@ -132,9 +132,6 @@ public class DatasetRepository {
 
     public Single<Long> create(Dataset dataset) {
         String jsonDoc = ProtobufJsonUtils.toString(dataset);
-        //long now = System.currentTimeMillis();
-        // TODO: Protobuf refuses nulls. The following silently change 1970-01-01T00:00:00Z to now().
-        //long effectiveTimestamp = dataset.getId().getTimestamp() == 0 ? now : dataset.getId().getTimestamp();
         return client.execute(exec -> exec.insert("""
                         INSERT INTO Dataset(path, version, document) VALUES(ltree(?), ?, ?::JSON)
                         ON CONFLICT (path, version) DO UPDATE SET document = ?::JSON""",
