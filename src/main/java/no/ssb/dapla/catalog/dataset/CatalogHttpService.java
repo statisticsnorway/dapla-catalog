@@ -48,12 +48,13 @@ import static no.ssb.helidon.application.Tracing.spanFromHttp;
 public class CatalogHttpService implements Service {
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogHttpService.class);
+    private static final int DEFAULT_LIMIT = 100;
+
     final CatalogSignatureVerifier verifier;
     final DatasetRepository repository;
     final UserAccessClient userAccessClient;
     final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     final ObjectMapper objectMapper = new ObjectMapper();
-    private final int limit = 100;
 
     public CatalogHttpService(DatasetRepository repository, CatalogSignatureVerifier verifier, UserAccessClient userAccessClient) {
         this.repository = repository;
@@ -88,7 +89,7 @@ public class CatalogHttpService implements Service {
         var prefix = req.queryParams().first("prefix");
         var limit = req.queryParams().first("limit")
                 .map(Integer::parseInt)
-                .orElse(100);
+                .orElse(DEFAULT_LIMIT);
         var version = req.queryParams().first("version")
                 .map(ZonedDateTime::parse)
                 .orElseGet(ZonedDateTime::now);
@@ -110,7 +111,7 @@ public class CatalogHttpService implements Service {
         var prefix = req.queryParams().first("prefix");
         var limit = req.queryParams().first("limit")
                 .map(Integer::parseInt)
-                .orElse(100);
+                .orElse(DEFAULT_LIMIT);
         var version = req.queryParams().first("version")
                 .map(ZonedDateTime::parse)
                 .orElseGet(ZonedDateTime::now);
@@ -134,7 +135,7 @@ public class CatalogHttpService implements Service {
     public void listByPrefix(ServerRequest req, ServerResponse res, ListByPrefixRequest request) {
         Span span = spanFromHttp(req, "listByPrefix");
         try {
-            repository.listByPrefix(request.getPrefix(), 1000)
+            repository.listByPrefix(request.getPrefix(), DEFAULT_LIMIT)
                     .timeout(5, TimeUnit.SECONDS, scheduledExecutorService)
                     .collectList()
                     .subscribe(entries -> {
@@ -365,7 +366,7 @@ public class CatalogHttpService implements Service {
         try {
             String pathPart = req.path().param("pathPart");
             String finalPathPart = pathPart != null ? pathPart : "";
-            repository.listDatasets(finalPathPart, limit)
+            repository.listDatasets(finalPathPart, DEFAULT_LIMIT)
                     .timeout(5, TimeUnit.SECONDS, scheduledExecutorService)
                     .collectList()
                     .subscribe(datasets -> {
