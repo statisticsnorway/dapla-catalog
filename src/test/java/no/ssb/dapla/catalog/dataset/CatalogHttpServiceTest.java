@@ -21,6 +21,7 @@ import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.catalog.protobuf.SignedDataset;
 import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
 import no.ssb.dapla.dataset.api.DatasetMetaAll;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.MockRegistryConfig;
 import no.ssb.testing.helidon.TestClient;
@@ -30,9 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
-import java.time.Clock;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -65,6 +65,21 @@ class CatalogHttpServiceTest {
         application.get(DatasetRepository.class).deleteAllDatasets().await(30, TimeUnit.SECONDS);
     }
 
+    void repositoryCreate(String path, Instant time) {
+        var dataset = Dataset.newBuilder().setId(
+                DatasetId.newBuilder()
+                        .setPath(path)
+                        .setTimestamp(time.toEpochMilli())
+                        .build()
+        ).build();
+        repositoryCreate(dataset);
+    }
+
+    void repositoryCreate(String path) {
+        var dataset = Dataset.newBuilder().setId(DatasetId.newBuilder().setPath(path).build()).build();
+        repositoryCreate(dataset);
+    }
+
     void repositoryCreate(Dataset dataset) {
         application.get(DatasetRepository.class).create(dataset).await(3, TimeUnit.SECONDS);
     }
@@ -84,8 +99,8 @@ class CatalogHttpServiceTest {
     @Test
     void thatCatalogSaveDataset() {
         DatasetMetaAll datasetMetaAll = createDatasetMetaAll(0);
-        byte[] signature = metadataSigner.sign(datasetMetaAll.toByteArray());
-        byte[] datasetMetaAllBytes = datasetMetaAll.toByteArray();
+        byte[] datasetMetaAllBytes = ProtobufJsonUtils.toString(datasetMetaAll).getBytes(StandardCharsets.UTF_8);
+        byte[] signature = metadataSigner.sign(datasetMetaAllBytes);
 
         String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", "user")
                 .sign(Algorithm.HMAC256("secret"))};
@@ -113,15 +128,17 @@ class CatalogHttpServiceTest {
     @Test
     void thatCatalogGetAllDatasets() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        Clock clockCatalogGetAllDatasets1 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-        Clock clockCatalogGetAllDatasets2 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-        Clock clockCatalogGetAllDatasets3 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-        Clock clockCatalogGetAllDatasets4 = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+
+        // Used to recreate object in assertions.
+        var now1 = Instant.now();
+        var now2 = Instant.now();
+        var now3 = Instant.now();
+        var now4 = Instant.now();
 
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path1/dataset1")
-                        .setTimestamp(clockCatalogGetAllDatasets1.millis())
+                        .setTimestamp(now1.toEpochMilli())
                         .build())
                 .setType(Dataset.Type.BOUNDED)
                 .setValuation(Dataset.Valuation.OPEN)
@@ -131,7 +148,7 @@ class CatalogHttpServiceTest {
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path2/dataset2")
-                        .setTimestamp(clockCatalogGetAllDatasets2.millis())
+                        .setTimestamp(now2.toEpochMilli())
                         .build())
                 .setType(Dataset.Type.UNBOUNDED)
                 .setValuation(Dataset.Valuation.INTERNAL)
@@ -141,7 +158,7 @@ class CatalogHttpServiceTest {
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path3/dataset31")
-                        .setTimestamp(clockCatalogGetAllDatasets3.millis())
+                        .setTimestamp(now3.toEpochMilli())
                         .build())
                 .setType(Dataset.Type.BOUNDED)
                 .setValuation(Dataset.Valuation.SENSITIVE)
@@ -151,7 +168,7 @@ class CatalogHttpServiceTest {
         repositoryCreate(Dataset.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/path3/dataset32")
-                        .setTimestamp(clockCatalogGetAllDatasets4.millis())
+                        .setTimestamp(now4.toEpochMilli())
                         .build())
                 .setType(Dataset.Type.UNBOUNDED)
                 .setValuation(Dataset.Valuation.SHIELDED)
@@ -169,7 +186,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path1/dataset1")
-                .put("timestamp", clockCatalogGetAllDatasets1.millis());
+                .put("timestamp", now1.toEpochMilli());
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
                 .put("valuation", Dataset.Valuation.OPEN.toString())
@@ -180,7 +197,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path2/dataset2")
-                .put("timestamp", clockCatalogGetAllDatasets2.millis());
+                .put("timestamp", now2.toEpochMilli());
         currentDataset
                 .put("type", Dataset.Type.UNBOUNDED.toString())
                 .put("valuation", Dataset.Valuation.INTERNAL.toString())
@@ -191,7 +208,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path3/dataset31")
-                .put("timestamp", clockCatalogGetAllDatasets3.millis());
+                .put("timestamp", now3.toEpochMilli());
         currentDataset
                 .put("type", Dataset.Type.BOUNDED.toString())
                 .put("valuation", Dataset.Valuation.SENSITIVE.toString())
@@ -202,7 +219,7 @@ class CatalogHttpServiceTest {
         currentDataset = catalogs.addObject();
         currentDataset.putObject("id")
                 .put("path", "/path3/dataset32")
-                .put("timestamp", clockCatalogGetAllDatasets4.millis());
+                .put("timestamp", now4.toEpochMilli());
         currentDataset
                 .put("type", Dataset.Type.UNBOUNDED.toString())
                 .put("valuation", Dataset.Valuation.SHIELDED.toString())
@@ -214,7 +231,7 @@ class CatalogHttpServiceTest {
     @Test
     void thatCatalogGetAllDatasetsInPath() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        Long timestampInMS = Clock.fixed(Instant.parse("2018-08-19T16:02:42.00Z"), ZoneId.systemDefault()).millis();
+        Long timestampInMS = Instant.parse("2018-08-19T16:02:42.00Z").toEpochMilli();
 
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path1/dataset1").build()).build());
         repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/path2/dataset2").build()).build());
@@ -308,7 +325,8 @@ class CatalogHttpServiceTest {
     }
 
     String save(DatasetMetaAll dataset, String userId) {
-        byte[] datasetBytes = dataset.toByteArray();
+        byte[] datasetBytes = ProtobufJsonUtils.toString(dataset).getBytes(StandardCharsets.UTF_8);
+        //byte[] datasetBytes = dataset.toByteArray();
         byte[] signature = metadataSigner.sign(datasetBytes);
 
         String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", userId)
@@ -338,16 +356,16 @@ class CatalogHttpServiceTest {
     void thatListByPrefixWorks() {
 
         // Create datasets, some with multiple versions
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/another/prefix").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/and/other/data").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/1").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/2").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unit-test/with/data/3").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/unitisgood/forall").build()).build());
-        repositoryCreate(Dataset.newBuilder().setId(DatasetId.newBuilder().setPath("/x-after/and/more/data").build()).build());
+        repositoryCreate("/another/prefix");
+        repositoryCreate("/unit-test/and/other/data");
+        repositoryCreate("/unit-test/and/other/data");
+        repositoryCreate("/unit-test/and/other/data");
+        repositoryCreate("/unit-test/with/data/1");
+        repositoryCreate("/unit-test/with/data/1");
+        repositoryCreate("/unit-test/with/data/2");
+        repositoryCreate("/unit-test/with/data/3");
+        repositoryCreate("/unitisgood/forall");
+        repositoryCreate("/x-after/and/more/data");
         ListByPrefixResponse response = listByPrefix("/unit", 100);
         List<DatasetId> entries = response.getEntriesList();
         assertThat(entries.size()).isEqualTo(5);
@@ -356,6 +374,76 @@ class CatalogHttpServiceTest {
         assertThat(entries.get(2).getPath()).isEqualTo("/unit-test/with/data/2");
         assertThat(entries.get(3).getPath()).isEqualTo("/unit-test/with/data/3");
         assertThat(entries.get(4).getPath()).isEqualTo("/unitisgood/forall");
+    }
+
+    @Test
+    void thatGetFoldersWorks() {
+        var emptyResponse = client.get("/folder?prefix=/&version=2018-08-19T16:02:42.00Z");
+
+        // Assert empty.
+        assertThat(emptyResponse.body()).isEqualToIgnoringWhitespace("""
+           {} 
+        """);
+
+        repositoryCreate("/foo/dataset1", Instant.ofEpochMilli(10000));
+        repositoryCreate("/foo/bar1/dataset1", Instant.ofEpochMilli(20000));
+        repositoryCreate("/foo/bar2/dataset1", Instant.ofEpochMilli(40000));
+        repositoryCreate("/bar/foo1/dataset1", Instant.ofEpochMilli(30000));
+        repositoryCreate("/bar/foo2/dataset1", Instant.ofEpochMilli(50000));
+
+        var rootResponse = client.get("/folder?prefix=/");
+        assertThat(rootResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "bar",
+                    "timestamp": "50000"
+                  }, {
+                    "path": "foo",
+                    "timestamp": "40000"
+                  }]
+                }
+                """);
+
+        // Note how the folder inherits the date of the latest child.
+        var pastRootResponse = client.get("/folder?prefix=/&version=1970-01-01T00:00:39Z");
+        assertThat(pastRootResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "bar",
+                    "timestamp": "30000"
+                  }, {
+                    "path": "foo",
+                    "timestamp": "20000"
+                  }]
+                }
+                """);
+
+        var fooResponse = client.get("/folder?prefix=/foo");
+        assertThat(fooResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/bar1",
+                    "timestamp": "20000"
+                  }, {
+                    "path": "/foo/bar2",
+                    "timestamp": "40000"
+                  }]
+                }
+                """);
+
+        var barResponse = client.get("/folder?prefix=/bar");
+        assertThat(barResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/bar/foo1",
+                    "timestamp": "30000"
+                  }, {
+                    "path": "/bar/foo2",
+                    "timestamp": "50000"
+                  }]
+                }
+                """);
+
     }
 
     @Test
@@ -389,37 +477,38 @@ class CatalogHttpServiceTest {
 
     @Test
     void thatGettingAPreviousDatasetWorks() throws InterruptedException {
+
+        var time = Instant.now();
         Dataset old = Dataset.newBuilder()
-                .setId(DatasetId.newBuilder().setPath("a_dataset").build())
+                .setId(DatasetId.newBuilder().setPath("a_dataset")
+                        .setTimestamp(time.minusSeconds(1000).toEpochMilli()).build())
                 .setValuation(Dataset.Valuation.INTERNAL)
                 .setState(Dataset.DatasetState.PROCESSED)
                 .setPseudoConfig(dummyPseudoConfig())
                 .build();
         repositoryCreate(old);
 
-        Thread.sleep(50L);
-
-        long timestamp = System.currentTimeMillis();
-
-        Thread.sleep(50L);
-
         repositoryCreate(
                 Dataset.newBuilder()
-                        .setId(DatasetId.newBuilder().setPath("a_dataset").build())
+                        .setId(DatasetId.newBuilder().setPath("a_dataset")
+                                .setTimestamp(time.minusSeconds(500).toEpochMilli()).build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
                         .setParentUri("a_location")
                         .build()
         );
 
-        assertThat(get("a_dataset", timestamp).getDataset()).isEqualTo(old);
+        assertThat(get("a_dataset", time.minusSeconds(501).toEpochMilli()).getDataset()).isEqualTo(old);
     }
 
     @Test
     void thatGetPreviousReturnsNothingWhenTimestampIsOld() {
         repositoryCreate(
                 Dataset.newBuilder()
-                        .setId(DatasetId.newBuilder().setPath("dataset_from_after_timestamp").build())
+                        .setId(DatasetId.newBuilder()
+                                .setPath("dataset_from_after_timestamp")
+                                .setTimestamp(101L)
+                                .build())
                         .setValuation(Dataset.Valuation.OPEN)
                         .setState(Dataset.DatasetState.RAW)
                         .setParentUri("a_location")

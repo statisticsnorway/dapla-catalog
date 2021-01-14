@@ -6,7 +6,9 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.helidon.common.http.Http;
 import io.helidon.common.reactive.Single;
+import io.helidon.webserver.BadRequestException;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
@@ -33,6 +35,7 @@ import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.ZonedDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -45,20 +48,19 @@ import static no.ssb.helidon.application.Tracing.spanFromHttp;
 public class CatalogHttpService implements Service {
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogHttpService.class);
+    private static final int DEFAULT_LIMIT = 100;
+
     final CatalogSignatureVerifier verifier;
     final DatasetRepository repository;
     final UserAccessClient userAccessClient;
     final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+    final ObjectMapper objectMapper = new ObjectMapper();
 
     public CatalogHttpService(DatasetRepository repository, CatalogSignatureVerifier verifier, UserAccessClient userAccessClient) {
         this.repository = repository;
         this.verifier = verifier;
         this.userAccessClient = userAccessClient;
     }
-
-    private final int limit = 100;
-
-    final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void update(Routing.Rules rules) {
@@ -69,6 +71,8 @@ public class CatalogHttpService implements Service {
         rules.get("/catalog", this::doGetList);
         rules.get("/catalog/{pathPart}", this::doGetList);
         rules.post("/catalog/write", Handler.create(SignedDataset.class, this::writeDataset)); // TODO Use PUT method here!
+        rules.get("/folder", this::listFolderByPrefix);
+        rules.get("/dataset", this::listDatasetByPrefix);
     }
 
     private Single<Dataset> repositoryGet(String path, long timestamp) {
@@ -81,10 +85,57 @@ public class CatalogHttpService implements Service {
         return repository.get(path);
     }
 
+    public void listDatasetByPrefix(ServerRequest req, ServerResponse res) {
+        var prefix = req.queryParams().first("prefix");
+        var limit = req.queryParams().first("limit")
+                .map(Integer::parseInt)
+                .orElse(DEFAULT_LIMIT);
+        var version = req.queryParams().first("version")
+                .map(ZonedDateTime::parse)
+                .orElseGet(ZonedDateTime::now);
+
+        var result = repository.listDatasetsByPrefix(
+                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                version,
+                limit
+        );
+
+        result.map(Dataset::getId).collectList().subscribe(
+                datasets -> {
+                    res.status(Http.Status.OK_200);
+                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                }, res::send);
+    }
+
+    public void listFolderByPrefix(ServerRequest req, ServerResponse res) {
+        var prefix = req.queryParams().first("prefix");
+        var limit = req.queryParams().first("limit")
+                .map(Integer::parseInt)
+                .orElse(DEFAULT_LIMIT);
+        var version = req.queryParams().first("version")
+                .map(ZonedDateTime::parse)
+                .orElseGet(ZonedDateTime::now);
+
+        var result = repository.listFoldersByPrefix(
+                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                version,
+                limit
+        );
+
+        result.collectList().subscribe(
+                datasets -> {
+                    res.status(Http.Status.OK_200);
+                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                }, res::send);
+    }
+
+    /**
+     * List all the elements under the prefix.
+     */
     public void listByPrefix(ServerRequest req, ServerResponse res, ListByPrefixRequest request) {
         Span span = spanFromHttp(req, "listByPrefix");
         try {
-            repository.listByPrefix(request.getPrefix(), 1000)
+            repository.listByPrefix(request.getPrefix(), DEFAULT_LIMIT)
                     .timeout(5, TimeUnit.SECONDS, scheduledExecutorService)
                     .collectList()
                     .subscribe(entries -> {
@@ -147,16 +198,6 @@ public class CatalogHttpService implements Service {
             } finally {
                 span.finish();
             }
-        }
-    }
-
-    static class HttpDeleteResponse {
-        final int status;
-        final DeleteDatasetResponse response;
-
-        HttpDeleteResponse(int status, DeleteDatasetResponse response) {
-            this.status = status;
-            this.response = response;
         }
     }
 
@@ -325,7 +366,7 @@ public class CatalogHttpService implements Service {
         try {
             String pathPart = req.path().param("pathPart");
             String finalPathPart = pathPart != null ? pathPart : "";
-            repository.listDatasets(finalPathPart, limit)
+            repository.listDatasets(finalPathPart, DEFAULT_LIMIT)
                     .timeout(5, TimeUnit.SECONDS, scheduledExecutorService)
                     .collectList()
                     .subscribe(datasets -> {
@@ -371,6 +412,16 @@ public class CatalogHttpService implements Service {
             } finally {
                 span.finish();
             }
+        }
+    }
+
+    static class HttpDeleteResponse {
+        final int status;
+        final DeleteDatasetResponse response;
+
+        HttpDeleteResponse(int status, DeleteDatasetResponse response) {
+            this.status = status;
+            this.response = response;
         }
     }
 }
