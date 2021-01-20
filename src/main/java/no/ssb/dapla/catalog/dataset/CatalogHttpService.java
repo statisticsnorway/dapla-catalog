@@ -135,7 +135,8 @@ public class CatalogHttpService implements Service {
     public void listByPrefix(ServerRequest req, ServerResponse res, ListByPrefixRequest request) {
         Span span = spanFromHttp(req, "listByPrefix");
         try {
-            repository.listByPrefix(request.getPrefix(), DEFAULT_LIMIT)
+            int limit = request.getLimit() == 0 ? DEFAULT_LIMIT : request.getLimit();
+            repository.listByPrefix(request.getPrefix(), limit)
                     .timeout(5, TimeUnit.SECONDS, scheduledExecutorService)
                     .collectList()
                     .subscribe(entries -> {
