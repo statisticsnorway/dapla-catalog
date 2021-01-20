@@ -74,13 +74,6 @@ public class DatasetRepository {
         return replaced.replaceAll("!", "_");
     }
 
-    public static String replaceInvalidChars(String original) {
-        if (original.startsWith("/")) {
-            original = original.substring(1);
-        }
-        return original.replace('/', '.');
-    }
-
     // TODO: Limit is useless without offset.
     public Multi<DatasetId> listByPrefix(String prefix, int limit) {
         return client.execute(exec -> exec.query("""
