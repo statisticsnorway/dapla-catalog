@@ -73,6 +73,7 @@ public class CatalogHttpService implements Service {
         rules.post("/catalog/write", Handler.create(SignedDataset.class, this::writeDataset)); // TODO Use PUT method here!
         rules.get("/folder", this::listFolderByPrefix);
         rules.get("/dataset", this::listDatasetByPrefix);
+        rules.get("/path", this::listPathByPrefix);
     }
 
     private Single<Dataset> repositoryGet(String path, long timestamp) {
@@ -83,6 +84,28 @@ public class CatalogHttpService implements Service {
             return repository.get(path, timestamp);
         }
         return repository.get(path);
+    }
+
+    private void listPathByPrefix(ServerRequest req, ServerResponse res) {
+        var prefix = req.queryParams().first("prefix");
+        var limit = req.queryParams().first("limit")
+                .map(Integer::parseInt)
+                .orElse(DEFAULT_LIMIT);
+        var version = req.queryParams().first("version")
+                .map(ZonedDateTime::parse)
+                .orElseGet(ZonedDateTime::now);
+
+        var result = repository.listPathsByPrefix(
+                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                version,
+                limit
+        );
+
+        result.collectList().subscribe(
+                datasets -> {
+                    res.status(Http.Status.OK_200);
+                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                }, res::send);
     }
 
     public void listDatasetByPrefix(ServerRequest req, ServerResponse res) {

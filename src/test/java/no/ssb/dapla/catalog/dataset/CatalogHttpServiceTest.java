@@ -377,6 +377,60 @@ class CatalogHttpServiceTest {
     }
 
     @Test
+    void thatGetPathsWorks() {
+        var emptyResponse = client.get("/path?prefix=/&version=2018-08-19T16:02:42.00Z");
+
+        // Assert empty.
+        assertThat(emptyResponse.body()).isEqualToIgnoringWhitespace("""
+           {} 
+        """);
+
+        repositoryCreate("/foo/dataset1", Instant.ofEpochMilli(10000));
+        repositoryCreate("/foo/bar1/dataset1", Instant.ofEpochMilli(20000));
+        repositoryCreate("/foo/bar1/dataset1", Instant.ofEpochMilli(40000));
+        repositoryCreate("/bar/foo1/dataset1", Instant.ofEpochMilli(30000));
+        repositoryCreate("/bar/foo2/dataset1", Instant.ofEpochMilli(50000));
+
+        var rootResponse = client.get("/path?prefix=/foo");
+        assertThat(rootResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/bar1/dataset1",
+                    "timestamp": "40000"
+                  }, {
+                    "path": "/foo/dataset1",
+                    "timestamp": "10000"
+                  }]
+                }
+                """);
+
+        var limitedResponse = client.get("/path?prefix=/foo&limit=1");
+        assertThat(limitedResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/bar1/dataset1",
+                    "timestamp": "40000"
+                  }]
+                }
+                """);
+
+        // Note how the timestamp reflects the latest version.
+        var pastRootResponse = client.get("/path?prefix=/foo&version=1970-01-01T00:00:39Z");
+        assertThat(pastRootResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/bar1/dataset1",
+                    "timestamp": "20000"
+                  }, {
+                    "path": "/foo/dataset1",
+                    "timestamp": "10000"
+                  }]
+                }
+                """);
+
+    }
+
+    @Test
     void thatGetFoldersWorks() {
         var emptyResponse = client.get("/folder?prefix=/&version=2018-08-19T16:02:42.00Z");
 
