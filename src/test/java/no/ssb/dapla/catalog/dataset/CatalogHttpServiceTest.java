@@ -508,10 +508,10 @@ class CatalogHttpServiceTest {
         assertThat(rootResponse.body()).isEqualToIgnoringWhitespace("""
                 {
                   "entries": [{
-                    "path": "bar",
+                    "path": "/bar",
                     "timestamp": "50000"
                   }, {
-                    "path": "foo",
+                    "path": "/foo",
                     "timestamp": "40000"
                   }]
                 }
@@ -522,10 +522,10 @@ class CatalogHttpServiceTest {
         assertThat(pastRootResponse.body()).isEqualToIgnoringWhitespace("""
                 {
                   "entries": [{
-                    "path": "bar",
+                    "path": "/bar",
                     "timestamp": "30000"
                   }, {
-                    "path": "foo",
+                    "path": "/foo",
                     "timestamp": "20000"
                   }]
                 }

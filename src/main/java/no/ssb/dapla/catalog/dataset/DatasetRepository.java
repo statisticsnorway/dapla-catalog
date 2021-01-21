@@ -67,7 +67,7 @@ public class DatasetRepository {
                     });
                 })
                 .collect(Collectors.joining("."));
-        if (escaped.startsWith("/")) {
+        if (escaped.startsWith(".")) {
             escaped = escaped.substring(1);
         }
         return escaped.replaceAll("!", "_");
