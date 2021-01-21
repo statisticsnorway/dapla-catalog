@@ -51,11 +51,22 @@ class DatasetRepositoryTest {
     void testEscapePath() {
         var tests = List.of(
                 "/some weird/p@th/to_escape",
-                "/1234%&4321/_4321"
+                "/1234%&4321/_4321",
+                "/!path",
+                "/!path",
+                "/!!path"
         );
         for (String test : tests) {
             assertThat(unescapePath(escapePath(test))).isEqualTo(test);
         }
+    }
+
+    @Test
+    void testUnEscapePath() {
+        assertThat(unescapePath("path")).isEqualTo("/path");
+        assertThat(unescapePath(".a.path")).isEqualTo("/a/path");
+        assertThat(unescapePath("a.path")).isEqualTo("/a/path");
+        assertThat(unescapePath("a.path.")).isEqualTo("/a/path");
     }
 
     @Test

@@ -40,38 +40,37 @@ public class DatasetRepository {
      * Unescape all characters that could cause problems with the ltree column.
      */
     public static String unescapePath(String path) {
-        if (path.contains(".")) {
-            if (!path.startsWith(".")) {
-                path = "." + path;
-            }
-            return Stream.of(path.split("\\."))
-                    .map(DatasetRepository::unescapePath)
-                    .collect(Collectors.joining("/"));
+        var escaped = Stream.of(path.split("\\."))
+                .map(part -> {
+                    return CODEPOINT.matcher(part).replaceAll(match -> {
+                        var point = Integer.parseInt(match.group().substring(1, 5));
+                        return String.valueOf(Character.toChars(point));
+                    });
+                })
+                .collect(Collectors.joining("/"));
+        if (!escaped.startsWith("/")) {
+            escaped = "/" + escaped;
         }
-        return CODEPOINT.matcher(path).replaceAll(match -> {
-            var point = Integer.parseInt(match.group().substring(1, 5));
-            return String.valueOf(Character.toChars(point));
-        });
+        return escaped;
     }
 
     /**
      * Escape all characters that could cause problems with the ltree column.
      */
     public static String escapePath(String path) {
-        if (path.contains("/")) {
-            if (path.startsWith("/")) {
-                path = path.substring(1);
-            }
-            return Stream.of(path.split("/"))
-                    .map(DatasetRepository::escapePath)
-                    .collect(Collectors.joining("."));
+        var escaped = Stream.of(path.split("/"))
+                .map(part -> {
+                    return VALID_CHARS.matcher(part).replaceAll(match -> {
+                        return match.group().codePoints()
+                                .mapToObj(codePoint -> String.format("!%04d", codePoint))
+                                .collect(Collectors.joining());
+                    });
+                })
+                .collect(Collectors.joining("."));
+        if (escaped.startsWith("/")) {
+            escaped = escaped.substring(1);
         }
-        var replaced = VALID_CHARS.matcher(path).replaceAll(match -> {
-                return match.group().codePoints()
-                        .mapToObj(codePoint -> String.format("!%04d", codePoint))
-                        .collect(Collectors.joining());
-        });
-        return replaced.replaceAll("!", "_");
+        return escaped.replaceAll("!", "_");
     }
 
     // TODO: Limit is useless without offset.
