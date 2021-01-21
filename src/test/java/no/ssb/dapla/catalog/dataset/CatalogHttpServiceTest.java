@@ -414,6 +414,11 @@ class CatalogHttpServiceTest {
                 }
                 """);
 
+        var nonexistentResponse = client.get("/path?prefix=/fo&limit=1");
+        assertThat(nonexistentResponse.body()).isEqualToIgnoringWhitespace("""
+                {}
+                """);
+
         // Note how the timestamp reflects the latest version.
         var pastRootResponse = client.get("/path?prefix=/foo&version=1970-01-01T00:00:39Z");
         assertThat(pastRootResponse.body()).isEqualToIgnoringWhitespace("""
@@ -428,6 +433,60 @@ class CatalogHttpServiceTest {
                 }
                 """);
 
+    }
+
+    @Test
+    void thatGetDatasetByPrefixWorks() {
+        var emptyResponse = client.get("/dataset?prefix=/");
+
+        // Assert empty.
+        assertThat(emptyResponse.body()).isEqualToIgnoringWhitespace("""
+           {} 
+        """);
+
+        repositoryCreate("/foo/dataset1", Instant.ofEpochMilli(10000));
+        repositoryCreate("/foo/dataset1", Instant.ofEpochMilli(20000));
+        repositoryCreate("/foo/dataset2", Instant.ofEpochMilli(40000));
+        repositoryCreate("/foo/bar/dataset1", Instant.ofEpochMilli(30000));
+        repositoryCreate("/foo/bar/dataset2", Instant.ofEpochMilli(50000));
+
+        var rootResponse = client.get("/dataset?prefix=/");
+        assertThat(rootResponse.body()).isEqualToIgnoringWhitespace("""
+            {}
+        """);
+
+        var fooResponse = client.get("/dataset?prefix=/foo");
+        assertThat(fooResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/dataset1",
+                    "timestamp": "20000"
+                  }, {
+                    "path": "/foo/dataset2",
+                    "timestamp": "40000"
+                  }]
+                }
+                """);
+
+        var fooPastResponse = client.get("/dataset?prefix=/foo&version=1970-01-01T00:00:19Z");
+        assertThat(fooPastResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/dataset1",
+                    "timestamp": "10000"
+                  }]
+                }
+                """);
+
+        var datasetResponse = client.get("/dataset?prefix=/foo/dataset1");
+        assertThat(datasetResponse.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [{
+                    "path": "/foo/dataset1",
+                    "timestamp": "20000"
+                  }]
+                }
+                """);
     }
 
     @Test

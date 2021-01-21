@@ -155,12 +155,12 @@ public class DatasetRepository {
                                MAX(version) as version
                         FROM dataset
                         WHERE version <= :version
-                          AND path ~ lquery(:prefix)
+                          AND path <@ ltree(:prefix)
                         GROUP BY path
                         LIMIT :limit
                         """
                 )
-                        .addParam("prefix", escapePath(prefix) + "*.*")
+                        .addParam("prefix", escapePath(prefix))
                         .addParam("version", timestamp.toOffsetDateTime())
                         .addParam("limit", limit)
                         .execute()
@@ -209,7 +209,7 @@ public class DatasetRepository {
                             FROM dataset
                             WHERE version <= :version
                               AND path <@ ltree(:prefix)
-                              AND nlevel(path) = nlevel(ltree(:prefix)) + 1
+                              AND nlevel(path) <= nlevel(ltree(:prefix)) + 1
                             GROUP BY path
                         )
                         SELECT l.path,
