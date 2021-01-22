@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.helidon.common.http.Http;
 import io.helidon.common.reactive.Single;
+import io.helidon.metrics.RegistryFactory;
 import io.helidon.webserver.BadRequestException;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
@@ -32,6 +33,8 @@ import no.ssb.dapla.catalog.protobuf.VarPseudoConfigItem;
 import no.ssb.dapla.dataset.api.DatasetMetaAll;
 import no.ssb.helidon.application.Tracing;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
+import org.eclipse.microprofile.metrics.Counter;
+import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,10 +59,45 @@ public class CatalogHttpService implements Service {
     final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final Counter rpcListByPrefixRequestCounter;
+    private final Counter rpcListByPrefixFailedCounter;
+    private final Counter rpcGetRequestCounter;
+    private final Counter rpcGetFailedCounter;
+    private final Counter rpcDeleteRequestCounter;
+    private final Counter rpcDeleteFailedCounter;
+    private final Counter listRequestCounter;
+    private final Counter listFailedCounter;
+    private final Counter writeRequestCounter;
+    private final Counter writeFailedCounter;
+    private final Counter listFolderByPrefixRequestCounter;
+    private final Counter listFolderByPrefixFailedCounter;
+    private final Counter listDatasetByPrefixRequestCounter;
+    private final Counter listDatasetByPrefixFailedCounter;
+    private final Counter listPathByPrefixRequestCounter;
+    private final Counter listPathByPrefixFailedCounter;
+
     public CatalogHttpService(DatasetRepository repository, CatalogSignatureVerifier verifier, UserAccessClient userAccessClient) {
         this.repository = repository;
         this.verifier = verifier;
         this.userAccessClient = userAccessClient;
+        RegistryFactory metricsRegistry = RegistryFactory.getInstance();
+        MetricRegistry appRegistry = metricsRegistry.getRegistry(MetricRegistry.Type.APPLICATION);
+        this.rpcListByPrefixRequestCounter = appRegistry.counter("rpcListByPrefixRequestCount");
+        this.rpcListByPrefixFailedCounter = appRegistry.counter("rpcListByPrefixFailedCount");
+        this.rpcGetRequestCounter = appRegistry.counter("rpcGetRequestCount");
+        this.rpcGetFailedCounter = appRegistry.counter("rpcGetFailedCount");
+        this.rpcDeleteRequestCounter = appRegistry.counter("rpcDeleteRequestCount");
+        this.rpcDeleteFailedCounter = appRegistry.counter("rpcDeleteFailedCount");
+        this.listRequestCounter = appRegistry.counter("listRequestCount");
+        this.listFailedCounter = appRegistry.counter("listFailedCount");
+        this.writeRequestCounter = appRegistry.counter("writeRequestCount");
+        this.writeFailedCounter = appRegistry.counter("writeFailedCount");
+        this.listFolderByPrefixRequestCounter = appRegistry.counter("listFolderByPrefixRequestCount");
+        this.listFolderByPrefixFailedCounter = appRegistry.counter("listFolderByPrefixFailedCount");
+        this.listDatasetByPrefixRequestCounter = appRegistry.counter("listDatasetByPrefixRequestCount");
+        this.listDatasetByPrefixFailedCounter = appRegistry.counter("listDatasetByPrefixFailedCount");
+        this.listPathByPrefixRequestCounter = appRegistry.counter("listPathByPrefixRequestCount");
+        this.listPathByPrefixFailedCounter = appRegistry.counter("listPathByPrefixFailedCount");
     }
 
     @Override
@@ -87,75 +125,136 @@ public class CatalogHttpService implements Service {
     }
 
     private void listPathByPrefix(ServerRequest req, ServerResponse res) {
-        var prefix = req.queryParams().first("prefix");
-        var limit = req.queryParams().first("limit")
-                .map(Integer::parseInt)
-                .orElse(DEFAULT_LIMIT);
-        var version = req.queryParams().first("version")
-                .map(ZonedDateTime::parse)
-                .orElseGet(ZonedDateTime::now);
+        listPathByPrefixRequestCounter.inc();
+        Span span = spanFromHttp(req, "listPathByPrefix");
+        try {
+            var prefix = req.queryParams().first("prefix");
+            var limit = req.queryParams().first("limit")
+                    .map(Integer::parseInt)
+                    .orElse(DEFAULT_LIMIT);
+            var version = req.queryParams().first("version")
+                    .map(ZonedDateTime::parse)
+                    .orElseGet(ZonedDateTime::now);
 
-        var result = repository.listPathsByPrefix(
-                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
-                version,
-                limit
-        );
+            var result = repository.listPathsByPrefix(
+                    prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                    version,
+                    limit
+            );
 
-        result.collectList().subscribe(
-                datasets -> {
-                    res.status(Http.Status.OK_200);
-                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
-                }, res::send);
+            result.collectList().subscribe(
+                    datasets -> {
+                        res.status(Http.Status.OK_200);
+                        res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                        span.finish();
+                    }, throwable -> {
+                        try {
+                            listPathByPrefixFailedCounter.inc();
+                            res.send(throwable);
+                        } finally {
+                            span.finish();
+                        }
+                    });
+        } catch (RuntimeException | Error e) {
+            try {
+                listPathByPrefixFailedCounter.inc();
+                LOG.error("", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
     }
 
     public void listDatasetByPrefix(ServerRequest req, ServerResponse res) {
-        var prefix = req.queryParams().first("prefix");
-        var limit = req.queryParams().first("limit")
-                .map(Integer::parseInt)
-                .orElse(DEFAULT_LIMIT);
-        var version = req.queryParams().first("version")
-                .map(ZonedDateTime::parse)
-                .orElseGet(ZonedDateTime::now);
+        listDatasetByPrefixRequestCounter.inc();
+        Span span = spanFromHttp(req, "listDatasetByPrefix");
+        try {
+            var prefix = req.queryParams().first("prefix");
+            var limit = req.queryParams().first("limit")
+                    .map(Integer::parseInt)
+                    .orElse(DEFAULT_LIMIT);
+            var version = req.queryParams().first("version")
+                    .map(ZonedDateTime::parse)
+                    .orElseGet(ZonedDateTime::now);
 
-        var result = repository.listDatasetsByPrefix(
-                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
-                version,
-                limit
-        );
+            var result = repository.listDatasetsByPrefix(
+                    prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                    version,
+                    limit
+            );
 
-        result.map(Dataset::getId).collectList().subscribe(
-                datasets -> {
-                    res.status(Http.Status.OK_200);
-                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
-                }, res::send);
+            result.map(Dataset::getId).collectList().subscribe(
+                    datasets -> {
+                        res.status(Http.Status.OK_200);
+                        res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                        span.finish();
+                    }, throwable -> {
+                        try {
+                            listDatasetByPrefixFailedCounter.inc();
+                            res.send(throwable);
+                        } finally {
+                            span.finish();
+                        }
+                    });
+        } catch (RuntimeException | Error e) {
+            try {
+                listDatasetByPrefixFailedCounter.inc();
+                LOG.error("", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
     }
 
     public void listFolderByPrefix(ServerRequest req, ServerResponse res) {
-        var prefix = req.queryParams().first("prefix");
-        var limit = req.queryParams().first("limit")
-                .map(Integer::parseInt)
-                .orElse(DEFAULT_LIMIT);
-        var version = req.queryParams().first("version")
-                .map(ZonedDateTime::parse)
-                .orElseGet(ZonedDateTime::now);
+        listFolderByPrefixRequestCounter.inc();
+        Span span = spanFromHttp(req, "listFolderByPrefix");
+        try {
+            var prefix = req.queryParams().first("prefix");
+            var limit = req.queryParams().first("limit")
+                    .map(Integer::parseInt)
+                    .orElse(DEFAULT_LIMIT);
+            var version = req.queryParams().first("version")
+                    .map(ZonedDateTime::parse)
+                    .orElseGet(ZonedDateTime::now);
 
-        var result = repository.listFoldersByPrefix(
-                prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
-                version,
-                limit
-        );
+            var result = repository.listFoldersByPrefix(
+                    prefix.orElseThrow(() -> new BadRequestException("prefix is required")),
+                    version,
+                    limit
+            );
 
-        result.collectList().subscribe(
-                datasets -> {
-                    res.status(Http.Status.OK_200);
-                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
-                }, res::send);
+            result.collectList().subscribe(
+                    datasets -> {
+                        res.status(Http.Status.OK_200);
+                        res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                        span.finish();
+                    }, throwable -> {
+                        try {
+                            listFolderByPrefixFailedCounter.inc();
+                            res.send(throwable);
+                        } finally {
+                            span.finish();
+                        }
+                    });
+        } catch (RuntimeException | Error e) {
+            try {
+                listFolderByPrefixFailedCounter.inc();
+                LOG.error("", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
     }
 
     /**
      * List all the elements under the prefix.
      */
     public void listByPrefix(ServerRequest req, ServerResponse res, ListByPrefixRequest request) {
+        rpcListByPrefixRequestCounter.inc();
         Span span = spanFromHttp(req, "listByPrefix");
         try {
             int limit = request.getLimit() == 0 ? DEFAULT_LIMIT : request.getLimit();
@@ -169,6 +268,7 @@ public class CatalogHttpService implements Service {
                         span.finish();
                     }, throwable -> {
                         try {
+                            rpcListByPrefixFailedCounter.inc();
                             Tracing.restoreTracingContext(req.tracer(), span);
                             logError(span, throwable, "error in nameIndex.listByPrefix()");
                             LOG.error(String.format("nameIndex.listByPrefix(): prefix='%s'", request.getPrefix()), throwable);
@@ -179,6 +279,7 @@ public class CatalogHttpService implements Service {
                     });
         } catch (RuntimeException | Error e) {
             try {
+                rpcListByPrefixFailedCounter.inc();
                 logError(span, e, "top-level error");
                 LOG.error("top-level error", e);
                 throw e;
@@ -189,6 +290,7 @@ public class CatalogHttpService implements Service {
     }
 
     public void getDataset(ServerRequest req, ServerResponse res, GetDatasetRequest getDatasetRequest) {
+        rpcGetRequestCounter.inc();
         Span span = spanFromHttp(req, "getDataset");
         try {
             repositoryGet(getDatasetRequest.getPath(), getDatasetRequest.getTimestamp())
@@ -206,6 +308,7 @@ public class CatalogHttpService implements Service {
                         span.finish();
                     }, throwable -> {
                         try {
+                            rpcGetFailedCounter.inc();
                             Tracing.restoreTracingContext(req.tracer(), span);
                             logError(span, throwable, "error in repository.get()");
                             LOG.error(String.format("repository.get(): path='%s'", getDatasetRequest.getPath()), throwable);
@@ -216,6 +319,7 @@ public class CatalogHttpService implements Service {
                     });
         } catch (RuntimeException | Error e) {
             try {
+                rpcGetFailedCounter.inc();
                 logError(span, e, "top-level error");
                 LOG.error("top-level error", e);
                 throw e;
@@ -226,6 +330,7 @@ public class CatalogHttpService implements Service {
     }
 
     public void delete(ServerRequest req, ServerResponse res, DeleteDatasetRequest request) {
+        rpcDeleteRequestCounter.inc();
         Span span = spanFromHttp(req, "delete");
         try {
             String bearerToken = req.headers().value("Authorization")
@@ -270,6 +375,7 @@ public class CatalogHttpService implements Service {
                                 }
                             }, () -> res.send()), t -> {
                                 try {
+                                    rpcDeleteFailedCounter.inc();
                                     Tracing.restoreTracingContext(req.tracer(), span);
                                     logError(span, t, "error in authService.hasAccess()");
                                     LOG.error("error in authService.hasAccess()", t);
@@ -281,6 +387,7 @@ public class CatalogHttpService implements Service {
                     );
         } catch (RuntimeException | Error e) {
             try {
+                rpcDeleteFailedCounter.inc();
                 logError(span, e, "top-level error");
                 LOG.error("top-level error", e);
                 throw e;
@@ -291,6 +398,7 @@ public class CatalogHttpService implements Service {
     }
 
     private void writeDataset(ServerRequest req, ServerResponse res, SignedDataset signedDataset) {
+        writeRequestCounter.inc();
         Span span = spanFromHttp(req, "writeDataset");
         try {
             byte[] datasetMetaAllBytes = signedDataset.getDatasetMetaAllBytes().toByteArray();
@@ -365,6 +473,7 @@ public class CatalogHttpService implements Service {
                         span.finish();
                     }, throwable -> {
                         try {
+                            writeFailedCounter.inc();
                             Tracing.restoreTracingContext(req.tracer(), span);
                             logError(span, throwable, "error in repository.create()");
                             LOG.error(String.format("repository.create(): dataset-id='%s'", dataset.getId().getPath()), throwable);
@@ -376,6 +485,7 @@ public class CatalogHttpService implements Service {
 
         } catch (RuntimeException | Error e) {
             try {
+                writeFailedCounter.inc();
                 logError(span, e, "top-level error");
                 LOG.error("top-level error", e);
                 throw e;
@@ -386,6 +496,7 @@ public class CatalogHttpService implements Service {
     }
 
     private void doGetList(ServerRequest req, ServerResponse res) {
+        listRequestCounter.inc();
         Span span = spanFromHttp(req, "doGetAll");
         try {
             String pathPart = req.path().param("pathPart");
@@ -421,6 +532,7 @@ public class CatalogHttpService implements Service {
                         Tracing.traceOutputMessage(span, jsonCatalogs.toString());
                     }, throwable -> {
                         try {
+                            listFailedCounter.inc();
                             Tracing.restoreTracingContext(req.tracer(), span);
                             logError(span, throwable, "error in nameIndex.listByPrefix()");
                             LOG.error(String.format("nameIndex.listByPrefix(): prefix='%s'", finalPathPart), throwable);
@@ -430,6 +542,7 @@ public class CatalogHttpService implements Service {
                     });
         } catch (RuntimeException | Error e) {
             try {
+                listFailedCounter.inc();
                 logError(span, e, "top-level error");
                 LOG.error("top-level error", e);
                 throw e;

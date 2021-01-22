@@ -8,12 +8,15 @@ import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.pubsub.v1.PubsubMessage;
 import io.helidon.config.Config;
+import io.helidon.metrics.RegistryFactory;
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.PseudoConfig;
 import no.ssb.dapla.dataset.api.DatasetMeta;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.pubsub.PubSub;
+import org.eclipse.microprofile.metrics.Counter;
+import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,10 +33,21 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
     final ObjectMapper objectMapper = new ObjectMapper();
 
     final Subscriber subscriber;
+    private final Counter pubSubMessagesDeliveredCounter;
+    private final Counter pubSubMessagesIgnoredCounter;
+    private final Counter pubSubMessagesSavedDatasetCounter;
+    private final Counter pubSubMessagesFailedCounter;
 
     public DatasetUpstreamGooglePubSubIntegration(Config pubSubUpstreamConfig, PubSub pubSub, DatasetRepository repository) {
         this.pubSub = pubSub;
         this.repository = repository;
+
+        RegistryFactory metricsRegistry = RegistryFactory.getInstance();
+        MetricRegistry appRegistry = metricsRegistry.getRegistry(MetricRegistry.Type.APPLICATION);
+        this.pubSubMessagesDeliveredCounter = appRegistry.counter("pubSubMessagesDeliveredCount");
+        this.pubSubMessagesIgnoredCounter = appRegistry.counter("pubSubMessagesIgnoredCount");
+        this.pubSubMessagesSavedDatasetCounter = appRegistry.counter("pubSubMessagesSavedDatasetCount");
+        this.pubSubMessagesFailedCounter = appRegistry.counter("pubSubMessagesFailedCount");
 
         String projectId = pubSubUpstreamConfig.get("projectId").asString().get();
         String topicName = pubSubUpstreamConfig.get("topic").asString().get();
@@ -58,6 +72,7 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
     @Override
     public void receiveMessage(PubsubMessage message, AckReplyConsumer consumer) {
         try {
+            pubSubMessagesDeliveredCounter.inc();
             JsonNode dataNode;
             try (InputStream inputStream = message.getData().newInput()) {
                 dataNode = objectMapper.readTree(inputStream);
@@ -66,6 +81,7 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
                     || !dataNode.has("dataset-meta")) {
                 LOG.warn("Message IGNORED. Received message with invalid protocol. Missing 'parentUri' and/or 'dataset-meta' fields in json-document.");
                 consumer.ack();
+                pubSubMessagesIgnoredCounter.inc();
                 return;
             }
             String parentUri = dataNode.get("parentUri").textValue();
@@ -87,12 +103,17 @@ public class DatasetUpstreamGooglePubSubIntegration implements MessageReceiver {
                     .subscribe(
                             rowsUpdated -> {
                                 consumer.ack();
+                                pubSubMessagesSavedDatasetCounter.inc();
                                 LOG.trace("Saved Dataset. json='{}'", ProtobufJsonUtils.toString(dataset));
                             },
-                            throwable -> LOG.error("Error while processing message, waiting for ack deadline before re-delivery", throwable)
+                            throwable -> {
+                                pubSubMessagesFailedCounter.inc();
+                                LOG.error("Error while processing message, waiting for ack deadline before re-delivery", throwable);
+                            }
                     );
 
         } catch (Throwable t) {
+            pubSubMessagesFailedCounter.inc();
             LOG.error("Error while processing message, waiting for ack deadline before re-delivery", t);
         }
     }
