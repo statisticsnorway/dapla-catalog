@@ -174,9 +174,8 @@ public class DatasetRepository {
     // TODO: Limit is useless without offset.
     public Multi<DatasetId> listFoldersByPrefix(String prefix, ZonedDateTime timestamp, Integer limit) {
         return client.execute(dbExecute -> dbExecute.createQuery("""
-                        -- Folders
                         SELECT subpath(path, 0, nlevel(ltree(:prefix)) + 1) as folder_path,
-                               MAX(version)                                        as version
+                               MAX(version)                                 as version
                         FROM dataset
                         WHERE version <= :version AND path <@ ltree(:prefix)
                           AND nlevel(ltree(:prefix)) + 1 < nlevel(path) 
