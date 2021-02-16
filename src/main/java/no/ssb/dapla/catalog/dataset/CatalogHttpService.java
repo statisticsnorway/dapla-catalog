@@ -107,11 +107,13 @@ public class CatalogHttpService implements Service {
         rules.post("/rpc/CatalogService/get", Handler.create(GetDatasetRequest.class, this::getDataset));
         rules.post("/rpc/CatalogService/delete", Handler.create(DeleteDatasetRequest.class, this::delete));
         rules.get("/catalog", this::doGetList);
+        // TODO: This endpoint is unusable with paths containing /
         rules.get("/catalog/{pathPart}", this::doGetList);
         rules.post("/catalog/write", Handler.create(SignedDataset.class, this::writeDataset)); // TODO Use PUT method here!
         rules.get("/folder", this::listFolderByPrefix);
         rules.get("/dataset", this::listDatasetByPrefix);
         rules.get("/path", this::listPathByPrefix);
+        rules.get("/version", this::listVersion);
     }
 
     private Single<Dataset> repositoryGet(String path, long timestamp) {
@@ -164,6 +166,22 @@ public class CatalogHttpService implements Service {
                 span.finish();
             }
         }
+    }
+
+    private void listVersion(ServerRequest req, ServerResponse res) {
+        var path = req.queryParams().first("path");
+        var limit = req.queryParams().first("limit")
+                .map(Integer::parseInt)
+                .orElse(DEFAULT_LIMIT);
+
+        repository.listDatasets(
+                path.orElseThrow(() -> new BadRequestException("path is required")),
+                limit
+        ).map(Dataset::getId).collectList().subscribe(
+                datasets -> {
+                    res.status(Http.Status.OK_200);
+                    res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));
+                }, res::send);
     }
 
     public void listDatasetByPrefix(ServerRequest req, ServerResponse res) {
