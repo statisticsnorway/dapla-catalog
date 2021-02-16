@@ -174,10 +174,10 @@ public class CatalogHttpService implements Service {
                 .map(Integer::parseInt)
                 .orElse(DEFAULT_LIMIT);
 
-        repository.listDatasets(
+        repository.listVersions(
                 path.orElseThrow(() -> new BadRequestException("path is required")),
                 limit
-        ).map(Dataset::getId).collectList().subscribe(
+        ).collectList().subscribe(
                 datasets -> {
                     res.status(Http.Status.OK_200);
                     res.send(ListByPrefixResponse.newBuilder().addAllEntries(datasets));

@@ -490,6 +490,44 @@ class CatalogHttpServiceTest {
     }
 
     @Test
+    void thatListVersionsWorks() {
+
+        repositoryCreate("/foo/bar/dataset", Instant.ofEpochMilli(10000));
+        repositoryCreate("/foo/bar/dataset", Instant.ofEpochMilli(20000));
+        repositoryCreate("/foo/bar/dataset", Instant.ofEpochMilli(40000));
+        repositoryCreate("/foo/bar/dataset", Instant.ofEpochMilli(30000));
+        repositoryCreate("/foo/bar/dataset", Instant.ofEpochMilli(50000));
+
+        var rootResponse = client.get("/version?path=/");
+        assertThat(rootResponse.body()).isEqualToIgnoringWhitespace("""
+           {} 
+        """);
+
+        var response = client.get("/version?path=/foo/bar/dataset");
+        assertThat(response.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [
+                    { "path": "/foo/bar/dataset", "timestamp": "50000"}, 
+                    { "path": "/foo/bar/dataset", "timestamp": "40000"}, 
+                    { "path": "/foo/bar/dataset", "timestamp": "30000"}, 
+                    { "path": "/foo/bar/dataset", "timestamp": "20000"}, 
+                    { "path": "/foo/bar/dataset", "timestamp": "10000"}
+                  ]
+                }
+                """);
+
+        var responseLimit = client.get("/version?path=/foo/bar/dataset&limit=2");
+        assertThat(responseLimit.body()).isEqualToIgnoringWhitespace("""
+                {
+                  "entries": [
+                    { "path": "/foo/bar/dataset", "timestamp": "50000"}, 
+                    { "path": "/foo/bar/dataset", "timestamp": "40000"}
+                  ]
+                }
+                """);
+    }
+
+    @Test
     void thatGetFoldersWorks() {
         var emptyResponse = client.get("/folder?prefix=/&version=2018-08-19T16:02:42.00Z");
 
