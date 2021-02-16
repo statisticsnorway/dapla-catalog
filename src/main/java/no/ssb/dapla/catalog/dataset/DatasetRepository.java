@@ -148,6 +148,25 @@ public class DatasetRepository {
     }
 
     // TODO: Limit is useless without offset.
+    public Multi<DatasetId> listVersions(String path, Integer limit) {
+        return client.execute(dbExecute -> dbExecute.createQuery("""
+            SELECT path,
+                   version
+            FROM dataset
+            WHERE path = ltree(:path)
+            ORDER BY version DESC LIMIT :limit
+        """)
+                .addParam("path", escapePath(path))
+                .addParam("limit", limit)
+                .execute()
+        ).map(row -> DatasetId.newBuilder()
+                .setPath(unescapePath(row.column("path").as(String.class)))
+                .setTimestamp(row.column("version").as(ZonedDateTime.class).toInstant().toEpochMilli())
+                .build()
+        );
+    }
+
+    // TODO: Limit is useless without offset.
     public Multi<DatasetId> listPathsByPrefix(String prefix, ZonedDateTime timestamp, Integer limit) {
         return client.execute(dbExecute -> dbExecute.createQuery("""
                         SELECT path,
