@@ -11,7 +11,7 @@ db:
     username: "catalog"
     password: "catalog"
   statements:
-    ping: "DO 0"
+    ping: "SET @HELIDON_PING=0"
 
 flyway:
   url: jdbc:postgresql://localhost:25432/catalog
