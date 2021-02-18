@@ -102,7 +102,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
 
         HealthSupport health = HealthSupport.builder()
                 .addLiveness(HealthChecks.healthChecks())
-                .addLiveness(DbClientHealthCheck.create(dbClient))
+                .addLiveness(DbClientHealthCheck.builder(dbClient).query().build())
                 .addReadiness()
                 .build();
 
