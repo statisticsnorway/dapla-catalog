@@ -38,6 +38,8 @@ import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -360,7 +362,10 @@ public class CatalogHttpService implements Service {
                     .orElseGet(() -> JWT.decode(JWT.create()
                             .withClaim("preferred_username", "unknown")
                             .sign(Algorithm.HMAC256("s3cr3t"))));
-            String userId = decodedJWT.getClaim("preferred_username").asString();
+            String userId = URLDecoder.decode(
+                    decodedJWT.getClaim("preferred_username").asString(),
+                    StandardCharsets.UTF_8
+            );
             //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
             repositoryGet(request.getPath(), request.getTimestamp())
