@@ -15,15 +15,11 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import static no.ssb.dapla.catalog.dataset.NamespaceUtils.escapePath;
+import static no.ssb.dapla.catalog.dataset.NamespaceUtils.unescapePath;
 
 public class DatasetRepository {
     private static final Logger LOG = LoggerFactory.getLogger(DatasetRepository.class);
-
-    private static final Pattern CODEPOINT = Pattern.compile("_[0-9]{4}");
-    private static final Pattern VALID_CHARS = Pattern.compile("([^\\w]|_)+");
 
     private final DbClient client;
 
@@ -36,42 +32,6 @@ public class DatasetRepository {
         this.client = client;
     }
 
-    /**
-     * Unescape all characters that could cause problems with the ltree column.
-     */
-    public static String unescapePath(String path) {
-        var escaped = Stream.of(path.split("\\."))
-                .map(part -> {
-                    return CODEPOINT.matcher(part).replaceAll(match -> {
-                        var point = Integer.parseInt(match.group().substring(1, 5));
-                        return String.valueOf(Character.toChars(point));
-                    });
-                })
-                .collect(Collectors.joining("/"));
-        if (!escaped.startsWith("/")) {
-            escaped = "/" + escaped;
-        }
-        return escaped;
-    }
-
-    /**
-     * Escape all characters that could cause problems with the ltree column.
-     */
-    public static String escapePath(String path) {
-        var escaped = Stream.of(path.split("/"))
-                .map(part -> {
-                    return VALID_CHARS.matcher(part).replaceAll(match -> {
-                        return match.group().codePoints()
-                                .mapToObj(codePoint -> String.format("!%04d", codePoint))
-                                .collect(Collectors.joining());
-                    });
-                })
-                .collect(Collectors.joining("."));
-        if (escaped.startsWith(".")) {
-            escaped = escaped.substring(1);
-        }
-        return escaped.replaceAll("!", "_");
-    }
 
     // TODO: Limit is useless without offset.
     public Multi<DatasetId> listByPrefix(String prefix, int limit) {

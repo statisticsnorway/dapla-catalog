@@ -15,11 +15,8 @@ import javax.inject.Inject;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static no.ssb.dapla.catalog.dataset.DatasetRepository.escapePath;
-import static no.ssb.dapla.catalog.dataset.DatasetRepository.unescapePath;
 import static org.assertj.core.api.Assertions.assertThat;
 
 
@@ -45,28 +42,6 @@ class DatasetRepositoryTest {
                 .setValuation(Valuation.INTERNAL)
                 .setParentUri(path)
                 .build();
-    }
-
-    @Test
-    void testEscapePath() {
-        var tests = List.of(
-                "/some weird/p@th/to_escape",
-                "/1234%&4321/_4321",
-                "/!path",
-                "/!path",
-                "/!!path"
-        );
-        for (String test : tests) {
-            assertThat(unescapePath(escapePath(test))).isEqualTo(test);
-        }
-    }
-
-    @Test
-    void testUnEscapePath() {
-        assertThat(unescapePath("path")).isEqualTo("/path");
-        assertThat(unescapePath(".a.path")).isEqualTo("/a/path");
-        assertThat(unescapePath("a.path")).isEqualTo("/a/path");
-        assertThat(unescapePath("a.path.")).isEqualTo("/a/path");
     }
 
     @Test
