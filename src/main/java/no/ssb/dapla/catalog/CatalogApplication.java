@@ -19,6 +19,8 @@ import no.ssb.dapla.catalog.dataset.DatasetRepository;
 import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegration;
 import no.ssb.dapla.catalog.dataset.DatasetUpstreamGooglePubSubIntegrationInitializer;
 import no.ssb.dapla.catalog.dataset.DefaultCatalogSignatureVerifier;
+import no.ssb.dapla.catalog.dataset.TableHttpService;
+import no.ssb.dapla.catalog.dataset.TableRepository;
 import no.ssb.dapla.catalog.health.ReadinessSample;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
@@ -110,8 +112,10 @@ public class CatalogApplication extends DefaultHelidonApplication {
         // Health health = new Health(config, sqlClient, lastReadySample, () -> get(WebServer.class));
 
         DatasetRepository repository = new DatasetRepository(dbClient);
+        TableRepository tableRepository = new TableRepository(dbClient);
 
         put(DatasetRepository.class, repository);
+        put(TableRepository.class, tableRepository);
 
 
         CatalogSignatureVerifier catalogSignatureVerifier;
@@ -158,6 +162,7 @@ public class CatalogApplication extends DefaultHelidonApplication {
                 .register(MetricsSupport.create())
                 .register(health)
                 .register(new CatalogHttpService(repository, catalogSignatureVerifier, userAccessClient))
+                .register(new TableHttpService(tableRepository))
                 .build();
 
         put(Routing.class, routing);
