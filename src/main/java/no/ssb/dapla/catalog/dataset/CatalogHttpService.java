@@ -519,7 +519,10 @@ public class CatalogHttpService implements Service {
         try {
             String pathPart = req.path().param("pathPart");
             String finalPathPart = pathPart != null ? pathPart : "";
-            repository.listDatasets(finalPathPart, DEFAULT_LIMIT)
+            var limit = req.queryParams().first("limit")
+                    .map(Integer::parseInt)
+                    .orElse(DEFAULT_LIMIT);
+            repository.listDatasets(finalPathPart, limit)
                     .timeout(5, TimeUnit.SECONDS, scheduledExecutorService)
                     .collectList()
                     .subscribe(datasets -> {
