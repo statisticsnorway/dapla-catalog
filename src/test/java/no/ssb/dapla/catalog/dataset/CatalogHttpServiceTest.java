@@ -229,6 +229,58 @@ class CatalogHttpServiceTest {
     }
 
     @Test
+    void thatCatalogGetOnlySomeDatasetsWithLimitQuery() throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+
+        // Used to recreate object in assertions.
+        var now1 = Instant.now();
+        var now2 = Instant.now();
+
+        // Create two datasets
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path1/dataset1")
+                        .setTimestamp(now1.toEpochMilli())
+                        .build())
+                .setType(Dataset.Type.BOUNDED)
+                .setValuation(Dataset.Valuation.OPEN)
+                .setState(Dataset.DatasetState.INPUT)
+                .setPseudoConfig(dummyPseudoConfig())
+                .build());
+        repositoryCreate(Dataset.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/path2/dataset2")
+                        .setTimestamp(now2.toEpochMilli())
+                        .build())
+                .setType(Dataset.Type.UNBOUNDED)
+                .setValuation(Dataset.Valuation.INTERNAL)
+                .setState(Dataset.DatasetState.PROCESSED)
+                .setPseudoConfig(dummyPseudoConfig())
+                .build());
+
+        String catalogJson = client.get("/catalog?limit=1").expect200Ok().body();
+        JsonNode actual = mapper.readTree(catalogJson);
+
+        ObjectNode expected = mapper.createObjectNode();
+        ArrayNode catalogs = expected.putArray("catalogs");
+        ObjectNode currentDataset;
+
+        // Expect only one dataset in response
+        currentDataset = catalogs.addObject();
+        currentDataset.putObject("id")
+                .put("path", "/path1/dataset1")
+                .put("timestamp", now1.toEpochMilli());
+        currentDataset
+                .put("type", Dataset.Type.BOUNDED.toString())
+                .put("valuation", Dataset.Valuation.OPEN.toString())
+                .put("state", Dataset.DatasetState.INPUT.toString());
+        currentDataset.putObject("pseudoConfig")
+                .put("vars", dummyPseudoConfig().getVarsList().toString());
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
     void thatCatalogGetAllDatasetsInPath() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         Long timestampInMS = Instant.parse("2018-08-19T16:02:42.00Z").toEpochMilli();
